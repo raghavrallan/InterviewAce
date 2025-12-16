@@ -1,0 +1,187 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply box-border;
+    cursor: default !important; /* Force default cursor everywhere */
+  }
+
+  body {
+    @apply m-0 p-0 overflow-hidden;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    cursor: default !important;
+  }
+
+  #root {
+    @apply w-screen h-screen;
+    cursor: default !important;
+  }
+
+  /* Force default cursor on ALL elements */
+  button, a, input, textarea, select, div, span, p, h1, h2, h3, h4, h5, h6 {
+    cursor: default !important;
+  }
+}
+
+@layer components {
+  /* Softer Liquid Glass Effect */
+  .glass-panel {
+    @apply backdrop-blur-2xl rounded-2xl shadow-2xl;
+    background: linear-gradient(
+      135deg,
+      rgba(30, 30, 40, 0.75) 0%,
+      rgba(20, 20, 30, 0.85) 100%
+    );
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .glass-panel-dark {
+    @apply backdrop-blur-2xl rounded-2xl shadow-2xl;
+    background: linear-gradient(
+      135deg,
+      rgba(15, 15, 25, 0.85) 0%,
+      rgba(10, 10, 20, 0.95) 100%
+    );
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .glass-button {
+    @apply backdrop-blur-md rounded-xl px-4 py-2 transition-all duration-300;
+    background: rgba(40, 40, 50, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    cursor: default !important;
+  }
+
+  .glass-button:hover {
+    background: rgba(50, 50, 60, 0.7);
+    border-color: rgba(255, 255, 255, 0.15);
+  }
+
+  .glass-button:active {
+    background: rgba(35, 35, 45, 0.8);
+  }
+
+  .glass-input {
+    @apply backdrop-blur-md rounded-xl px-4 py-2 outline-none transition-all duration-300;
+    background: rgba(30, 30, 40, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #e0e0e0;
+    cursor: default !important;
+  }
+
+  .glass-input::placeholder {
+    color: rgba(255, 255, 255, 0.4);
+  }
+
+  .glass-input:focus {
+    background: rgba(35, 35, 45, 0.7);
+    border-color: rgba(139, 92, 246, 0.4);
+  }
+
+  /* Custom Scrollbar - Softer */
+  .custom-scrollbar::-webkit-scrollbar {
+    @apply w-1.5;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 10px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 10px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.25);
+  }
+
+  /* Subtle Animated Background */
+  .gradient-bg {
+    background: linear-gradient(
+      135deg,
+      #1a1a2e 0%,
+      #16213e 25%,
+      #0f3460 50%,
+      #1a1a2e 75%,
+      #16213e 100%
+    );
+    background-size: 300% 300%;
+    animation: gradientShift 20s ease infinite;
+  }
+
+  @keyframes gradientShift {
+    0%, 100% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+  }
+
+  /* Subtle Glow */
+  .glow {
+    box-shadow: 0 0 15px rgba(139, 92, 246, 0.2),
+                0 0 30px rgba(139, 92, 246, 0.1);
+  }
+
+  /* Draggable Area */
+  .drag-handle {
+    -webkit-app-region: drag;
+    cursor: default !important;
+  }
+
+  .no-drag {
+    -webkit-app-region: no-drag;
+    cursor: default !important;
+  }
+
+  /* Mode Indicators */
+  .mode-normal {
+    opacity: 0.95;
+  }
+
+  .mode-stealth {
+    opacity: 0.15;
+  }
+
+  .mode-ghost {
+    opacity: 0.05;
+  }
+
+  .mode-adaptive {
+    opacity: 0.7;
+  }
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.2s ease-out;
+}
+
+/* Visibility Mode Specific Styles */
+.visibility-stealth .glass-panel,
+.visibility-ghost .glass-panel {
+  background: rgba(10, 10, 15, 0.3) !important;
+  border-color: rgba(255, 255, 255, 0.02) !important;
+}
+
+.visibility-adaptive {
+  backdrop-filter: blur(20px);
+}

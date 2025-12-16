@@ -1,0 +1,33 @@
+{
+  "name": "interview-ace",
+  "version": "1.0.0",
+  "description": "AI-powered interview assistant with stealth mode and real-time transcription (FREE - No API keys needed for STT!)",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "concurrently -n \"BACKEND,FRONTEND,ELECTRON\" -c \"blue,green,magenta\" \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:electron\"",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:electron": "wait-on http://localhost:5173 http://localhost:5000 && electron .",
+    "build": "npm run build:frontend && npm run build:backend",
+    "build:frontend": "cd frontend && npm run build",
+    "build:backend": "cd backend && npm run build",
+    "start": "npm run build:frontend && concurrently \"npm run dev:backend\" \"electron .\"",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:build": "docker-compose build",
+    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "clean": "rm -rf node_modules backend/node_modules frontend/node_modules",
+    "test": "echo \"No tests specified\" && exit 0"
+  },
+  "keywords": ["interview", "ai", "assistant", "electron", "gpt", "speech-recognition", "web-speech-api"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "electron": "^28.1.0",
+    "wait-on": "^7.2.0"
+  },
+  "dependencies": {
+    "electron-is-dev": "^3.0.1"
+  }
+}
