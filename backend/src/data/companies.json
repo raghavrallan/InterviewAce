@@ -1,0 +1,402 @@
+{
+  "companies": [
+    {
+      "id": "google",
+      "name": "Google",
+      "logo": "https://www.google.com/favicon.ico",
+      "industry": "Technology",
+      "size": "Large (100,000+ employees)",
+      "headquarters": "Mountain View, CA",
+      "culture": {
+        "keywords": ["Innovation", "Collaboration", "Data-Driven", "Open Culture", "Googleyness"],
+        "values": [
+          "Focus on the user",
+          "Think big but start small",
+          "Strive for continual improvement",
+          "Be comfortable with ambiguity"
+        ],
+        "workStyle": "Collaborative, fast-paced, emphasis on innovation and moonshot thinking"
+      },
+      "interviewProcess": {
+        "stages": [
+          "Phone Screen (45-60 min)",
+          "Technical Phone Interview (45-60 min)",
+          "Onsite Interviews (4-5 rounds)",
+          "Hiring Committee Review",
+          "Team Matching"
+        ],
+        "duration": "6-8 weeks",
+        "format": "Behavioral + Technical + System Design",
+        "tips": [
+          "Focus on Googleyness and Leadership",
+          "Practice coding on whiteboard/Google Docs",
+          "Prepare for open-ended design questions",
+          "Think out loud during problem-solving",
+          "Demonstrate scalability thinking"
+        ]
+      },
+      "commonQuestions": {
+        "behavioral": [
+          "Tell me about a time you solved a problem with limited resources",
+          "Describe a situation where you had to work with a difficult team member",
+          "How do you prioritize when everything is urgent?",
+          "Tell me about a time you failed and what you learned",
+          "Describe your most challenging project and how you handled it"
+        ],
+        "technical": [
+          "Design a URL shortener",
+          "Implement a LRU cache",
+          "Find the kth largest element in an array",
+          "Design YouTube/Gmail/Google Search",
+          "Reverse a linked list"
+        ],
+        "situational": [
+          "How would you handle disagreement with your manager?",
+          "What would you do if a product launch was delayed?",
+          "How would you prioritize features for a new product?"
+        ]
+      },
+      "interviewFocus": ["Problem solving", "Coding", "System design", "Leadership", "Googleyness"],
+      "preparationResources": [
+        "LeetCode (Medium-Hard problems)",
+        "System Design Primer",
+        "Google's Engineering Blog"
+      ]
+    },
+    {
+      "id": "amazon",
+      "name": "Amazon",
+      "logo": "https://www.amazon.com/favicon.ico",
+      "industry": "E-commerce & Technology",
+      "size": "Large (1,500,000+ employees)",
+      "headquarters": "Seattle, WA",
+      "culture": {
+        "keywords": ["Customer Obsession", "Ownership", "Invent and Simplify", "Bias for Action", "Frugality"],
+        "values": [
+          "Customer Obsession",
+          "Ownership",
+          "Invent and Simplify",
+          "Are Right, A Lot",
+          "Learn and Be Curious",
+          "Hire and Develop the Best",
+          "Insist on the Highest Standards",
+          "Think Big",
+          "Bias for Action",
+          "Frugality",
+          "Earn Trust",
+          "Dive Deep",
+          "Have Backbone; Disagree and Commit",
+          "Deliver Results",
+          "Strive to be Earth's Best Employer",
+          "Success and Scale Bring Broad Responsibility"
+        ],
+        "workStyle": "Fast-paced, data-driven, high ownership, results-oriented"
+      },
+      "interviewProcess": {
+        "stages": [
+          "Phone Screen with Recruiter (30 min)",
+          "Technical Phone Interview (45-60 min)",
+          "Onsite/Virtual Loop (5-7 rounds)",
+          "Bar Raiser Round",
+          "Debrief & Decision"
+        ],
+        "duration": "4-6 weeks",
+        "format": "Leadership Principles (LP) focused + Technical",
+        "tips": [
+          "Prepare STAR method stories for ALL 16 Leadership Principles",
+          "Quantify your impact with data/metrics",
+          "Focus on 'I' not 'We' when describing contributions",
+          "Show ownership and bias for action",
+          "Prepare 2-3 stories per Leadership Principle"
+        ]
+      },
+      "commonQuestions": {
+        "behavioral": [
+          "Tell me about a time you earned trust of a group",
+          "Describe a time when you took a calculated risk",
+          "Tell me about a time you had to make a decision with incomplete data",
+          "Describe a situation where you had to dive deep into a problem",
+          "Tell me about a time you disagreed with your manager"
+        ],
+        "technical": [
+          "Design Amazon Prime Video",
+          "Implement two sum problem",
+          "Design a recommendation system",
+          "Optimize a slow database query",
+          "Design Amazon's order fulfillment system"
+        ],
+        "situational": [
+          "How would you handle a customer complaint about a product?",
+          "What would you do if you missed a deadline?",
+          "How would you prioritize multiple urgent tasks?"
+        ]
+      },
+      "interviewFocus": ["Leadership Principles", "Data-driven decisions", "Customer obsession", "Ownership", "Results"],
+      "preparationResources": [
+        "Amazon Leadership Principles",
+        "LeetCode (Easy-Medium problems)",
+        "Day One Blog"
+      ]
+    },
+    {
+      "id": "microsoft",
+      "name": "Microsoft",
+      "logo": "https://www.microsoft.com/favicon.ico",
+      "industry": "Technology",
+      "size": "Large (200,000+ employees)",
+      "headquarters": "Redmond, WA",
+      "culture": {
+        "keywords": ["Growth Mindset", "Inclusion", "Innovation", "Collaboration", "Customer-Centric"],
+        "values": [
+          "Respect",
+          "Integrity",
+          "Accountability",
+          "Growth Mindset",
+          "Inclusion"
+        ],
+        "workStyle": "Collaborative, growth-oriented, innovation-focused, work-life balance emphasis"
+      },
+      "interviewProcess": {
+        "stages": [
+          "Recruiter Screen (30 min)",
+          "Technical Phone Interview (60 min)",
+          "Onsite Loop (4-5 rounds)",
+          "As-Appropriate (AA) Round",
+          "Hiring Manager Decision"
+        ],
+        "duration": "4-6 weeks",
+        "format": "Behavioral + Technical + Problem Solving",
+        "tips": [
+          "Demonstrate growth mindset in your answers",
+          "Show collaboration and teamwork",
+          "Prepare for Azure/Cloud questions if relevant",
+          "Focus on learning from failures",
+          "Emphasize diversity and inclusion values"
+        ]
+      },
+      "commonQuestions": {
+        "behavioral": [
+          "Tell me about a time you learned from failure",
+          "Describe how you handled feedback you disagreed with",
+          "Tell me about a time you mentored someone",
+          "How do you stay current with technology?",
+          "Describe a time you worked with a diverse team"
+        ],
+        "technical": [
+          "Design Outlook/OneDrive/Teams",
+          "Implement a binary search tree",
+          "Find missing number in array",
+          "Design a distributed cache",
+          "Reverse words in a string"
+        ],
+        "situational": [
+          "How would you handle a project with unclear requirements?",
+          "What would you do if you disagreed with a design decision?",
+          "How would you approach learning a new technology?"
+        ]
+      },
+      "interviewFocus": ["Growth mindset", "Collaboration", "Technical depth", "Innovation", "Inclusion"],
+      "preparationResources": [
+        "LeetCode (Easy-Medium problems)",
+        "Microsoft Learn",
+        "Azure Architecture Center"
+      ]
+    },
+    {
+      "id": "meta",
+      "name": "Meta (Facebook)",
+      "logo": "https://www.facebook.com/favicon.ico",
+      "industry": "Social Media & Technology",
+      "size": "Large (80,000+ employees)",
+      "headquarters": "Menlo Park, CA",
+      "culture": {
+        "keywords": ["Move Fast", "Be Bold", "Focus on Impact", "Be Open", "Build Social Value"],
+        "values": [
+          "Move Fast",
+          "Be Bold",
+          "Focus on Impact",
+          "Be Open",
+          "Build Social Value"
+        ],
+        "workStyle": "Fast-paced, impact-driven, bold decision-making, open communication"
+      },
+      "interviewProcess": {
+        "stages": [
+          "Recruiter Screen (30 min)",
+          "Technical Phone Screen (45 min)",
+          "Onsite Interviews (2 rounds)",
+          "Additional Rounds if needed",
+          "Hiring Committee"
+        ],
+        "duration": "4-6 weeks",
+        "format": "Coding + System Design + Behavioral",
+        "tips": [
+          "Emphasize impact and scale in your stories",
+          "Be ready for challenging technical problems",
+          "Show initiative and ownership",
+          "Demonstrate ability to move fast",
+          "Prepare for discussions on Meta products"
+        ]
+      },
+      "commonQuestions": {
+        "behavioral": [
+          "Tell me about your most significant impact",
+          "Describe a time you moved fast and broke things",
+          "How do you prioritize your work?",
+          "Tell me about a time you influenced others",
+          "Describe a product you built from scratch"
+        ],
+        "technical": [
+          "Design Facebook News Feed",
+          "Implement a graph algorithm",
+          "Design Instagram Stories",
+          "Clone a graph",
+          "Design WhatsApp"
+        ],
+        "situational": [
+          "How would you improve Facebook/Instagram?",
+          "What would you do if you had conflicting priorities?",
+          "How would you handle negative user feedback?"
+        ]
+      },
+      "interviewFocus": ["Impact", "System design", "Product thinking", "Speed", "Technical excellence"],
+      "preparationResources": [
+        "LeetCode (Medium-Hard problems)",
+        "System Design Interview",
+        "Meta Engineering Blog"
+      ]
+    },
+    {
+      "id": "apple",
+      "name": "Apple",
+      "logo": "https://www.apple.com/favicon.ico",
+      "industry": "Technology & Consumer Electronics",
+      "size": "Large (150,000+ employees)",
+      "headquarters": "Cupertino, CA",
+      "culture": {
+        "keywords": ["Innovation", "Excellence", "Attention to Detail", "Secrecy", "Design-First"],
+        "values": [
+          "Innovation",
+          "Excellence",
+          "Secrecy",
+          "Attention to Detail",
+          "User Experience"
+        ],
+        "workStyle": "Detail-oriented, quality-focused, secretive, design-centric, high standards"
+      },
+      "interviewProcess": {
+        "stages": [
+          "Recruiter Screen (30 min)",
+          "Phone Interview (45-60 min)",
+          "Onsite Interviews (4-8 rounds)",
+          "Team Specific Interviews",
+          "Hiring Manager Decision"
+        ],
+        "duration": "6-10 weeks",
+        "format": "Technical + Behavioral + Team Fit",
+        "tips": [
+          "Show attention to detail in everything",
+          "Demonstrate passion for Apple products",
+          "Focus on quality over speed",
+          "Be prepared for NDA and secrecy culture",
+          "Emphasize user experience thinking"
+        ]
+      },
+      "commonQuestions": {
+        "behavioral": [
+          "Why Apple?",
+          "Tell me about a project you're most proud of",
+          "How do you ensure quality in your work?",
+          "Describe a time you paid attention to details",
+          "Tell me about a time you innovated"
+        ],
+        "technical": [
+          "Design Apple Maps",
+          "Implement an iterator",
+          "Design iCloud sync",
+          "Optimize battery life for iOS",
+          "Design Siri's architecture"
+        ],
+        "situational": [
+          "How would you improve an Apple product?",
+          "What would you do if you found a critical bug before launch?",
+          "How would you balance innovation with user privacy?"
+        ]
+      },
+      "interviewFocus": ["Technical excellence", "Design thinking", "Quality", "Innovation", "Product passion"],
+      "preparationResources": [
+        "LeetCode (Medium problems)",
+        "Human Interface Guidelines",
+        "Apple Developer Documentation"
+      ]
+    },
+    {
+      "id": "netflix",
+      "name": "Netflix",
+      "logo": "https://www.netflix.com/favicon.ico",
+      "industry": "Entertainment & Technology",
+      "size": "Medium (10,000+ employees)",
+      "headquarters": "Los Gatos, CA",
+      "culture": {
+        "keywords": ["Freedom & Responsibility", "Context not Control", "Highly Aligned Loosely Coupled", "Pay Top of Market"],
+        "values": [
+          "Judgment",
+          "Communication",
+          "Impact",
+          "Curiosity",
+          "Innovation",
+          "Courage",
+          "Passion",
+          "Honesty",
+          "Selflessness"
+        ],
+        "workStyle": "High performance, freedom with responsibility, direct feedback, no rules"
+      },
+      "interviewProcess": {
+        "stages": [
+          "Recruiter Screen (30 min)",
+          "Hiring Manager Screen (60 min)",
+          "Onsite Loop (4-6 rounds)",
+          "Reference Checks",
+          "Offer Decision"
+        ],
+        "duration": "4-8 weeks",
+        "format": "Values-based + Technical + Culture Fit",
+        "tips": [
+          "Be radically honest and direct",
+          "Show high impact in previous roles",
+          "Demonstrate independent decision-making",
+          "Prepare for Netflix Culture Deck questions",
+          "Show ability to handle freedom and responsibility"
+        ]
+      },
+      "commonQuestions": {
+        "behavioral": [
+          "Tell me about a time you made a hard decision",
+          "Describe how you handle feedback",
+          "Tell me about your biggest impact",
+          "How do you deal with ambiguity?",
+          "Describe a time you showed courage"
+        ],
+        "technical": [
+          "Design Netflix recommendation system",
+          "Optimize video streaming architecture",
+          "Design content delivery network",
+          "Implement A/B testing framework",
+          "Design user profile system"
+        ],
+        "situational": [
+          "How would you improve Netflix?",
+          "What would you do if you disagreed with a decision?",
+          "How would you handle unlimited vacation policy?"
+        ]
+      },
+      "interviewFocus": ["Freedom & responsibility", "Impact", "Communication", "Judgment", "Culture fit"],
+      "preparationResources": [
+        "Netflix Culture Deck",
+        "LeetCode (Medium problems)",
+        "Netflix Tech Blog"
+      ]
+    }
+  ]
+}
