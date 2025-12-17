@@ -55,6 +55,30 @@ InterviewAce is a desktop application built with Electron that helps job seekers
 - Generate tailored interview questions for the role
 - Full frontend UI integration in Resume tab
 
+### 🏢 Company-Specific Interview Prep **(✅ NEW - P1 Complete)**
+- **6 major tech companies** included: Google, Amazon, Microsoft, Meta, Apple, Netflix
+- Comprehensive company data:
+  - Culture keywords and core values
+  - Interview process details and stages
+  - Common behavioral, technical, and situational questions
+  - Interview focus areas and preparation tips
+- **AI-powered question generation** tailored to company culture
+  - Questions align with company values (e.g., Amazon's Leadership Principles)
+  - Personalized to your resume and experience
+  - Includes explanation of why the question matters for that company
+  - Focus area identification (e.g., "Googleyness", "Customer Obsession")
+- **Company selector** in Settings tab
+  - Browse companies by industry and size
+  - View company headquarters and key info
+  - Select company to enable company-specific practice mode
+- **Seamless Practice mode integration**
+  - Automatic company question generation when company selected
+  - Company name and focus area displayed with each question
+  - Falls back to general questions if no company selected
+- **Culture fit assessment** (API ready)
+  - Evaluate alignment with company values
+  - Identify strengths and areas for improvement
+
 ### 🎤 Real-Time Transcription
 - Live speech-to-text using Web Speech API
 - Continuous recording across all tabs
