@@ -1,18 +1,23 @@
 import { useEffect, useState, useRef } from 'react';
-import { Mic, MicOff } from 'lucide-react';
+import { Mic, MicOff, Volume2 } from 'lucide-react';
 import useStore from '../store/useStore';
 import toast from 'react-hot-toast';
+import AudioCaptureService from '../services/AudioCaptureService';
 
 /**
- * Web Speech API STT Component
- * Free, built-in browser speech recognition (no API keys needed!)
+ * Web Speech API STT Component with Dual Audio Capture
+ * Captures both system audio (interviewer) and microphone (user)
+ * Uses electron-audio-loopback for system audio capture
  * Supports: Chrome, Edge, Safari, Opera
  */
 function WebSpeechSTT({ isRecording, onTranscript }) {
   const [isSupported, setIsSupported] = useState(false);
   const [interimTranscript, setInterimTranscript] = useState('');
+  const [audioLevels, setAudioLevels] = useState({ system: 0, mic: 0 });
+  const [captureMode, setCaptureMode] = useState('mic-only'); // 'mic-only', 'dual-audio'
   const recognitionRef = useRef(null);
   const transcriptBufferRef = useRef('');
+  const audioCaptureInitialized = useRef(false);
 
   useEffect(() => {
     // Check if browser supports Web Speech API
@@ -140,39 +145,99 @@ function WebSpeechSTT({ isRecording, onTranscript }) {
     };
   }, [onTranscript]);
 
+  // Initialize AudioCaptureService
+  useEffect(() => {
+    const initAudioCapture = async () => {
+      try {
+        if (!AudioCaptureService.isSupported()) {
+          console.warn('AudioCaptureService not supported');
+          return;
+        }
+
+        await AudioCaptureService.initialize();
+        audioCaptureInitialized.current = true;
+
+        // Setup audio level callback
+        AudioCaptureService.setAudioLevelCallback((type, level) => {
+          setAudioLevels(prev => ({ ...prev, [type]: level }));
+        });
+
+        console.log('✅ AudioCaptureService initialized');
+      } catch (error) {
+        console.error('❌ Failed to initialize AudioCaptureService:', error);
+      }
+    };
+
+    initAudioCapture();
+
+    return () => {
+      if (audioCaptureInitialized.current) {
+        AudioCaptureService.destroy();
+      }
+    };
+  }, []);
+
   // Start/stop recognition based on isRecording prop
   useEffect(() => {
     if (!recognitionRef.current) return;
 
     if (isRecording) {
-      // Add a small delay before starting to ensure everything is initialized
-      const startTimer = setTimeout(() => {
+      const startRecording = async () => {
         try {
-          recognitionRef.current.start();
-          console.log('Speech recognition started');
-          toast.success('Listening to microphone...', { duration: 2000 });
-        } catch (err) {
-          if (err.message.includes('already started')) {
-            // Already started, ignore
-            console.log('Recognition already active');
-            return;
+          // Try to start dual audio capture if enabled and supported
+          if (captureMode === 'dual-audio' && AudioCaptureService.isLoopbackSupported()) {
+            try {
+              console.log('🎙️ Starting dual audio capture...');
+              await AudioCaptureService.startCapture();
+              toast.success('Capturing system audio + microphone', { duration: 2000 });
+            } catch (audioError) {
+              console.warn('⚠️ Dual audio capture failed, falling back to mic-only:', audioError);
+              toast.error('Could not capture system audio. Using mic only.', { duration: 3000 });
+              setCaptureMode('mic-only');
+            }
+          } else {
+            console.log('🎤 Using microphone only');
+            toast.success('Listening to microphone...', { duration: 2000 });
           }
-          console.error('Failed to start recognition:', err);
-          toast.error('Failed to start microphone. Please try again.');
-        }
-      }, 100);
 
-      return () => clearTimeout(startTimer);
+          // Start speech recognition (with small delay)
+          setTimeout(() => {
+            try {
+              recognitionRef.current.start();
+              console.log('✅ Speech recognition started');
+            } catch (err) {
+              if (err.message.includes('already started')) {
+                console.log('Recognition already active');
+                return;
+              }
+              console.error('Failed to start recognition:', err);
+              toast.error('Failed to start speech recognition. Please try again.');
+            }
+          }, 100);
+        } catch (error) {
+          console.error('❌ Failed to start recording:', error);
+          toast.error('Failed to start recording. Please try again.');
+        }
+      };
+
+      startRecording();
     } else {
+      // Stop recording
       try {
         recognitionRef.current.stop();
         transcriptBufferRef.current = '';
         setInterimTranscript('');
+
+        // Stop audio capture
+        if (captureMode === 'dual-audio') {
+          AudioCaptureService.stopCapture();
+          console.log('⏹️ Audio capture stopped');
+        }
       } catch (err) {
         console.error('Error stopping recognition:', err);
       }
     }
-  }, [isRecording]);
+  }, [isRecording, captureMode]);
 
   // Check if transcript is a complete sentence
   const isCompleteSentence = (text) => {
@@ -196,7 +261,73 @@ function WebSpeechSTT({ isRecording, onTranscript }) {
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
+      {/* Dual Audio Mode Toggle */}
+      {AudioCaptureService.isLoopbackSupported() && !isRecording && (
+        <div className="glass-panel-dark p-3 rounded-xl">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Volume2 className="w-4 h-4 text-blue-400" />
+              <span className="text-white/80 text-sm font-medium">Dual Audio Capture</span>
+            </div>
+            <button
+              onClick={() => setCaptureMode(prev => prev === 'mic-only' ? 'dual-audio' : 'mic-only')}
+              className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                captureMode === 'dual-audio'
+                  ? 'bg-blue-500/30 text-blue-300 border border-blue-400/50'
+                  : 'bg-white/10 text-white/60 border border-white/20'
+              }`}
+            >
+              {captureMode === 'dual-audio' ? 'Enabled' : 'Disabled'}
+            </button>
+          </div>
+          <p className="text-white/50 text-xs mt-2">
+            {captureMode === 'dual-audio'
+              ? '✅ Will capture both system audio and microphone'
+              : '🎤 Will capture microphone only'}
+          </p>
+        </div>
+      )}
+
+      {/* Audio Level Indicators */}
+      {isRecording && captureMode === 'dual-audio' && (
+        <div className="glass-panel-dark p-3 rounded-xl space-y-2">
+          {/* System Audio Level */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center space-x-2">
+                <Volume2 className="w-3 h-3 text-green-400" />
+                <span className="text-white/70 text-xs">System Audio</span>
+              </div>
+              <span className="text-white/50 text-xs">{Math.round(audioLevels.system * 100)}%</span>
+            </div>
+            <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-green-500 to-green-400 transition-all duration-150"
+                style={{ width: `${audioLevels.system * 100}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Microphone Level */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center space-x-2">
+                <Mic className="w-3 h-3 text-blue-400" />
+                <span className="text-white/70 text-xs">Microphone</span>
+              </div>
+              <span className="text-white/50 text-xs">{Math.round(audioLevels.mic * 100)}%</span>
+            </div>
+            <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-blue-500 to-blue-400 transition-all duration-150"
+                style={{ width: `${audioLevels.mic * 100}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Live interim transcript */}
       {interimTranscript && (
         <div className="p-3 glass-panel-dark rounded-xl">
@@ -211,7 +342,9 @@ function WebSpeechSTT({ isRecording, onTranscript }) {
       {/* Instructions */}
       {isRecording && !interimTranscript && (
         <div className="text-white/50 text-xs text-center">
-          Speak into your microphone...
+          {captureMode === 'dual-audio'
+            ? 'Listening to system audio and microphone...'
+            : 'Speak into your microphone...'}
         </div>
       )}
     </div>
