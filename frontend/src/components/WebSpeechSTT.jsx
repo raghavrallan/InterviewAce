@@ -1,8 +1,10 @@
 import { useEffect, useState, useRef } from 'react';
 import { Mic, MicOff, Volume2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import useStore from '../store/useStore';
 import toast from 'react-hot-toast';
 import AudioCaptureService from '../services/AudioCaptureService';
+import { getSpeechLanguageCode } from '../i18n';
 
 /**
  * Web Speech API STT Component with Dual Audio Capture
@@ -11,6 +13,7 @@ import AudioCaptureService from '../services/AudioCaptureService';
  * Supports: Chrome, Edge, Safari, Opera
  */
 function WebSpeechSTT({ isRecording, onTranscript }) {
+  const { i18n } = useTranslation();
   const [isSupported, setIsSupported] = useState(false);
   const [interimTranscript, setInterimTranscript] = useState('');
   const [audioLevels, setAudioLevels] = useState({ system: 0, mic: 0 });
@@ -18,6 +21,7 @@ function WebSpeechSTT({ isRecording, onTranscript }) {
   const recognitionRef = useRef(null);
   const transcriptBufferRef = useRef('');
   const audioCaptureInitialized = useRef(false);
+  const [currentLanguage, setCurrentLanguage] = useState(i18n.language);
 
   useEffect(() => {
     // Check if browser supports Web Speech API
@@ -35,8 +39,10 @@ function WebSpeechSTT({ isRecording, onTranscript }) {
     const recognition = new SpeechRecognition();
     recognition.continuous = true; // Keep listening
     recognition.interimResults = true; // Get partial results
-    recognition.lang = 'en-US';
+    recognition.lang = getSpeechLanguageCode(currentLanguage); // Use selected language
     recognition.maxAlternatives = 1;
+
+    console.log(`🌐 Speech recognition language set to: ${recognition.lang}`);
 
     // Handle results
     recognition.onresult = (event) => {
@@ -143,7 +149,45 @@ function WebSpeechSTT({ isRecording, onTranscript }) {
         recognitionRef.current.stop();
       }
     };
-  }, [onTranscript]);
+  }, [onTranscript, currentLanguage]);
+
+  // Listen for language changes
+  useEffect(() => {
+    const handleLanguageChange = (lng) => {
+      console.log(`🌐 Language changed to: ${lng}`);
+      setCurrentLanguage(lng);
+
+      // Update recognition language if it exists
+      if (recognitionRef.current) {
+        const newLang = getSpeechLanguageCode(lng);
+        recognitionRef.current.lang = newLang;
+        console.log(`🔄 Updated speech recognition language to: ${newLang}`);
+
+        // If currently recording, restart recognition with new language
+        if (isRecording) {
+          try {
+            recognitionRef.current.stop();
+            setTimeout(() => {
+              try {
+                recognitionRef.current.start();
+                toast.success(`Now recognizing speech in ${newLang.split('-')[0].toUpperCase()}`);
+              } catch (err) {
+                console.error('Failed to restart recognition:', err);
+              }
+            }, 300);
+          } catch (err) {
+            console.error('Failed to stop recognition:', err);
+          }
+        }
+      }
+    };
+
+    i18n.on('languageChanged', handleLanguageChange);
+
+    return () => {
+      i18n.off('languageChanged', handleLanguageChange);
+    };
+  }, [i18n, isRecording]);
 
   // Initialize AudioCaptureService
   useEffect(() => {

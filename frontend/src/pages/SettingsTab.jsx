@@ -1,13 +1,17 @@
 import { useState, useEffect } from 'react';
-import { Settings, Key, Keyboard, Info, Eye, EyeOff, Ghost, Layers, Mic, Headphones } from 'lucide-react';
+import { Settings, Key, Keyboard, Info, Eye, EyeOff, Ghost, Layers, Mic, Headphones, Globe } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import useStore from '../store/useStore';
 import toast from 'react-hot-toast';
+import { SUPPORTED_LANGUAGES } from '../i18n';
 
 function SettingsTab() {
+  const { t, i18n } = useTranslation();
   const { visibilityMode, audioInputDevice, audioOutputDevice, setAudioInputDevice, setAudioOutputDevice } = useStore();
   const [audioInputDevices, setAudioInputDevices] = useState([]);
   const [audioOutputDevices, setAudioOutputDevices] = useState([]);
+  const [currentLanguage, setCurrentLanguage] = useState(i18n.language);
 
   // Enumerate audio devices
   useEffect(() => {
@@ -50,6 +54,13 @@ function SettingsTab() {
     const deviceId = e.target.value === 'default' ? null : e.target.value;
     setAudioOutputDevice(deviceId);
     toast.success('Output device updated');
+  };
+
+  const handleLanguageChange = async (e) => {
+    const newLanguage = e.target.value;
+    await i18n.changeLanguage(newLanguage);
+    setCurrentLanguage(newLanguage);
+    toast.success(`Language changed to ${SUPPORTED_LANGUAGES.find(l => l.code === newLanguage)?.name || 'English'}`);
   };
 
   const shortcuts = [
@@ -95,6 +106,40 @@ function SettingsTab() {
   return (
     <div className="glass-panel h-full overflow-y-auto custom-scrollbar p-3">
       <h2 className="text-white font-semibold text-base mb-4">Settings</h2>
+
+      {/* Language Selection */}
+      <div className="glass-panel-dark p-3 rounded-xl mb-4">
+        <div className="flex items-center space-x-2 mb-3">
+          <Globe className="w-4 h-4 text-purple-300" />
+          <h3 className="text-white font-medium text-sm">Language / Idioma / 语言</h3>
+        </div>
+
+        <div className="space-y-3">
+          <select
+            value={currentLanguage}
+            onChange={handleLanguageChange}
+            className="w-full glass-input text-sm"
+          >
+            {SUPPORTED_LANGUAGES.map((lang) => (
+              <option key={lang.code} value={lang.code}>
+                {lang.flag} {lang.name}
+              </option>
+            ))}
+          </select>
+
+          <p className="text-gray-400 text-xs leading-relaxed">
+            Select your preferred language for the interface and speech recognition.
+            Changes will apply immediately to the UI and voice input.
+          </p>
+
+          <div className="flex items-center space-x-2 p-2 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+            <Info className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
+            <p className="text-blue-300 text-xs">
+              Speech recognition accuracy may vary by language and requires internet connection.
+            </p>
+          </div>
+        </div>
+      </div>
 
       {/* Audio Devices Section */}
       <div className="glass-panel-dark p-3 rounded-xl mb-4">

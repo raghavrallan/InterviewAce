@@ -6,7 +6,7 @@ const logger = require('../utils/logger');
 // Generate answer based on resume context
 router.post('/answer', async (req, res, next) => {
   try {
-    const { question, resumeContext, conversationHistory } = req.body;
+    const { question, resumeContext, conversationHistory, language } = req.body;
 
     if (!question) {
       return res.status(400).json({ error: 'Question is required' });
@@ -17,7 +17,8 @@ router.post('/answer', async (req, res, next) => {
     const answer = await chatService.generateAnswer({
       question,
       resumeContext,
-      conversationHistory: conversationHistory || []
+      conversationHistory: conversationHistory || [],
+      language: language || 'en' // Default to English
     });
 
     res.json({

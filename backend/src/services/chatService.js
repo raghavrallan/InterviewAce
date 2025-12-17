@@ -57,8 +57,25 @@ class ChatService {
     return this._openai;
   }
 
-  async generateAnswer({ question, resumeContext, conversationHistory = [] }) {
+  async generateAnswer({ question, resumeContext, conversationHistory = [], language = 'en' }) {
     try {
+      // Language mapping for natural language names
+      const languageNames = {
+        'en': 'English',
+        'es': 'Spanish',
+        'fr': 'French',
+        'de': 'German',
+        'zh': 'Chinese',
+        'ja': 'Japanese',
+        'ko': 'Korean',
+        'hi': 'Hindi',
+        'pt': 'Portuguese',
+        'ar': 'Arabic',
+        'ru': 'Russian'
+      };
+
+      const targetLanguage = languageNames[language] || 'English';
+
       const messages = [
         {
           role: 'system',
@@ -68,10 +85,14 @@ class ChatService {
           role: 'system',
           content: `Candidate's Resume Context:\n${resumeContext || 'No resume uploaded yet'}`
         },
+        {
+          role: 'system',
+          content: `IMPORTANT: Respond in ${targetLanguage}. The candidate needs the answer in ${targetLanguage}.`
+        },
         ...conversationHistory,
         {
           role: 'user',
-          content: `Interview Question: ${question}\n\nProvide a natural, first-person answer as if you are the candidate speaking.`
+          content: `Interview Question: ${question}\n\nProvide a natural, first-person answer as if you are the candidate speaking, in ${targetLanguage}.`
         }
       ];
 

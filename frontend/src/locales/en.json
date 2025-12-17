@@ -1,0 +1,183 @@
+{
+  "app": {
+    "title": "InterviewAce",
+    "subtitle": "AI-Powered Interview Assistant"
+  },
+  "tabs": {
+    "chat": "Chat",
+    "transcript": "Transcript",
+    "resume": "Resume",
+    "practice": "Practice",
+    "settings": "Settings"
+  },
+  "chat": {
+    "title": "AI Interview Assistant",
+    "placeholder": "Ask a question or describe the interview question...",
+    "send": "Send",
+    "generating": "Generating answer...",
+    "error": "Failed to generate answer",
+    "noResume": "Upload your resume first to get personalized answers",
+    "uploadResume": "Upload Resume",
+    "copyCode": "Copy Code",
+    "copied": "Copied!"
+  },
+  "transcript": {
+    "title": "Live Transcript",
+    "start": "Start Recording",
+    "stop": "Stop Recording",
+    "clear": "Clear",
+    "export": "Export",
+    "recording": "Recording...",
+    "stopped": "Stopped",
+    "interviewer": "Interviewer",
+    "you": "You",
+    "empty": "No transcript yet. Start recording to capture the conversation.",
+    "exportSuccess": "Transcript exported successfully!",
+    "cleared": "Transcript cleared"
+  },
+  "resume": {
+    "title": "Upload Your Resume",
+    "upload": "Upload Resume",
+    "dragDrop": "Drag & drop your resume here, or click to select",
+    "supportedFormats": "Supported: PDF, DOCX, TXT",
+    "processing": "Processing resume...",
+    "uploaded": "Resume uploaded successfully!",
+    "error": "Failed to upload resume",
+    "summary": "Resume Summary",
+    "noResume": "No resume uploaded yet"
+  },
+  "practice": {
+    "title": "Practice Mode",
+    "subtitle": "Simulate a real interview with AI-generated questions",
+    "role": "Job Role",
+    "rolePlaceholder": "e.g., Software Engineer, Product Manager",
+    "level": "Experience Level",
+    "levels": {
+      "entry": "Entry Level (0-2 years)",
+      "mid": "Mid Level (3-5 years)",
+      "senior": "Senior Level (6+ years)",
+      "lead": "Lead/Principal (10+ years)"
+    },
+    "start": "Start Practice Session",
+    "stop": "Stop Session",
+    "next": "Next Question",
+    "questionNumber": "Question {{current}} of {{total}}",
+    "yourAnswer": "Your Answer",
+    "recording": "Recording your answer...",
+    "analyzing": "Analyzing your response...",
+    "feedback": "AI Feedback",
+    "speechAnalysis": "Speech Analysis",
+    "fillerWords": "Filler Words",
+    "wordsPerMinute": "Words/Min",
+    "clarity": "Clarity Score",
+    "starMethod": "STAR Method Guide",
+    "noSession": "Start a practice session to begin",
+    "generateError": "Failed to generate practice question",
+    "analyzeError": "Failed to analyze answer"
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "languageDescription": "Select your preferred language for the interface and speech recognition",
+    "theme": "Theme",
+    "themeDescription": "Choose your preferred color theme",
+    "themes": {
+      "light": "Light",
+      "dark": "Dark",
+      "auto": "Auto"
+    },
+    "audioDevice": "Microphone",
+    "audioDeviceDescription": "Select your microphone for recording",
+    "defaultDevice": "Default Microphone",
+    "testMic": "Test Microphone",
+    "testing": "Testing...",
+    "visibility": "Window Visibility",
+    "visibilityDescription": "Control how visible the app is during interviews",
+    "visibilityModes": {
+      "normal": "Normal (95% opacity)",
+      "stealth": "Stealth (15% opacity)",
+      "ghost": "Ghost (5% opacity)",
+      "adaptive": "Adaptive (70% opacity)"
+    },
+    "shortcuts": "Keyboard Shortcuts",
+    "shortcutsList": {
+      "cycleMode": "Cycle Visibility Modes",
+      "stealth": "Quick Stealth Mode",
+      "ghost": "Ghost Mode",
+      "normal": "Normal Mode",
+      "hide": "Hide/Show Window",
+      "focus": "Focus Window"
+    },
+    "about": "About",
+    "version": "Version",
+    "credits": "Built with AI assistance"
+  },
+  "languages": {
+    "en": "English",
+    "es": "Español",
+    "fr": "Français",
+    "de": "Deutsch",
+    "zh": "中文",
+    "ja": "日本語",
+    "ko": "한국어",
+    "hi": "हिन्दी",
+    "pt": "Português",
+    "ar": "العربية",
+    "ru": "Русский"
+  },
+  "audio": {
+    "dualCapture": "Dual Audio Capture",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "systemAudio": "System Audio",
+    "microphone": "Microphone",
+    "captureDescription": "Will capture both system audio and microphone",
+    "micOnlyDescription": "Will capture microphone only",
+    "listening": "Listening to system audio and microphone...",
+    "micListening": "Speak into your microphone..."
+  },
+  "starMethod": {
+    "title": "STAR Method Framework",
+    "subtitle": "Structure your behavioral interview answers",
+    "situation": "Situation",
+    "situationDesc": "Set the scene and context",
+    "task": "Task",
+    "taskDesc": "Describe your responsibility",
+    "action": "Action",
+    "actionDesc": "Explain what you did",
+    "result": "Result",
+    "resultDesc": "Share the outcome",
+    "example": "Example",
+    "tips": "Tips for Success",
+    "tip1": "Be specific with numbers and metrics",
+    "tip2": "Focus on YOUR actions, not the team's",
+    "tip3": "Quantify the results when possible",
+    "tip4": "Keep answers between 1-2 minutes"
+  },
+  "common": {
+    "close": "Close",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "confirm": "Confirm",
+    "yes": "Yes",
+    "no": "No",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "finish": "Finish",
+    "skip": "Skip"
+  },
+  "errors": {
+    "speechRecognitionNotSupported": "Speech recognition not supported in this browser. Use Chrome or Edge.",
+    "microphoneAccessDenied": "Microphone access denied. Please allow microphone access in your browser settings.",
+    "networkError": "Network error. Please check your internet connection.",
+    "serviceNotAvailable": "Speech recognition service not available. Please check your internet connection.",
+    "audioCaptureFailed": "Could not capture system audio. Using mic only.",
+    "unknown": "An unknown error occurred. Please try again."
+  }
+}
