@@ -205,6 +205,48 @@ ipcMain.handle('set-window-position', (event, { x, y }) => {
   mainWindow.setPosition(x, y);
 });
 
+// Get list of open windows (for platform detection)
+ipcMain.handle('get-open-windows', async () => {
+  try {
+    // Get all windows using Electron's BrowserWindow.getAllWindows()
+    // Note: This only gets Electron windows, not system windows
+    // For system-wide window detection, we'd need additional native modules
+
+    const windows = [];
+
+    // Check page title (for web-based platforms)
+    if (mainWindow && mainWindow.webContents) {
+      const title = mainWindow.getTitle();
+      const url = mainWindow.webContents.getURL();
+
+      windows.push({
+        title,
+        url,
+        id: mainWindow.id
+      });
+    }
+
+    return windows;
+  } catch (error) {
+    console.error('Failed to get open windows:', error);
+    return [];
+  }
+});
+
+// Auto-detect video platform and adjust visibility
+ipcMain.handle('auto-adjust-for-platform', (event, platform) => {
+  console.log(`🎯 Auto-adjusting for ${platform.name}`);
+
+  // Automatically switch to ghost/stealth mode when platform detected
+  if (platform.key === 'ZOOM' || platform.key === 'TEAMS') {
+    setVisibilityMode('ghost');
+  } else {
+    setVisibilityMode('stealth');
+  }
+
+  return { success: true, mode: visibilityMode };
+});
+
 console.log('🚀 InterviewAce Electron App Started');
 console.log('📌 Shortcuts:');
 console.log('   Ctrl+Shift+V: Cycle Modes (Normal→Stealth→Ghost→Adaptive)');

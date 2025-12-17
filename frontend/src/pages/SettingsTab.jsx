@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Settings, Key, Keyboard, Info, Eye, EyeOff, Ghost, Layers, Mic, Headphones, Globe } from 'lucide-react';
+import { Settings, Key, Keyboard, Info, Eye, EyeOff, Ghost, Layers, Mic, Headphones, Globe, Video, CheckCircle, XCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import useStore from '../store/useStore';
 import toast from 'react-hot-toast';
 import { SUPPORTED_LANGUAGES } from '../i18n';
+import PlatformDetectionService from '../services/PlatformDetectionService';
 
 function SettingsTab() {
   const { t, i18n } = useTranslation();
@@ -12,6 +13,11 @@ function SettingsTab() {
   const [audioInputDevices, setAudioInputDevices] = useState([]);
   const [audioOutputDevices, setAudioOutputDevices] = useState([]);
   const [currentLanguage, setCurrentLanguage] = useState(i18n.language);
+  const [detectedPlatform, setDetectedPlatform] = useState(null);
+  const [isInMeeting, setIsInMeeting] = useState(false);
+  const [autoActivateEnabled, setAutoActivateEnabled] = useState(() => {
+    return localStorage.getItem('autoActivateOnMeeting') !== 'false';
+  });
 
   // Enumerate audio devices
   useEffect(() => {
@@ -62,6 +68,59 @@ function SettingsTab() {
     setCurrentLanguage(newLanguage);
     toast.success(`Language changed to ${SUPPORTED_LANGUAGES.find(l => l.code === newLanguage)?.name || 'English'}`);
   };
+
+  const toggleAutoActivate = () => {
+    const newValue = !autoActivateEnabled;
+    setAutoActivateEnabled(newValue);
+    localStorage.setItem('autoActivateOnMeeting', String(newValue));
+
+    if (newValue) {
+      toast.success('Auto-activation enabled');
+      PlatformDetectionService.startMonitoring({ autoActivate: true });
+    } else {
+      toast.success('Auto-activation disabled');
+      PlatformDetectionService.stopMonitoring();
+    }
+  };
+
+  // Initialize platform detection
+  useEffect(() => {
+    // Set up callbacks
+    PlatformDetectionService.onPlatformDetectedCallback((platform) => {
+      setDetectedPlatform(platform);
+      toast.success(`${platform.icon} Detected: ${platform.name}`);
+    });
+
+    PlatformDetectionService.onMeetingStartCallback(async (platform) => {
+      setIsInMeeting(true);
+      toast.success(`🎥 Meeting started on ${platform.name}!`);
+
+      // Auto-adjust visibility if Electron API is available
+      if (window.electronAPI && window.electronAPI.autoAdjustForPlatform) {
+        try {
+          await window.electronAPI.autoAdjustForPlatform(platform);
+        } catch (error) {
+          console.error('Failed to auto-adjust:', error);
+        }
+      }
+    });
+
+    PlatformDetectionService.onMeetingEndCallback((platform) => {
+      setIsInMeeting(false);
+      if (platform) {
+        toast(`Meeting ended on ${platform.name}`);
+      }
+    });
+
+    // Start monitoring if auto-activate is enabled
+    if (autoActivateEnabled) {
+      PlatformDetectionService.startMonitoring({ autoActivate: true });
+    }
+
+    return () => {
+      PlatformDetectionService.stopMonitoring();
+    };
+  }, [autoActivateEnabled]);
 
   const shortcuts = [
     { keys: 'Ctrl+Shift+V', description: 'Cycle Visibility Modes', icon: Layers },
@@ -137,6 +196,94 @@ function SettingsTab() {
             <p className="text-blue-300 text-xs">
               Speech recognition accuracy may vary by language and requires internet connection.
             </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Video Platform Detection */}
+      <div className="glass-panel-dark p-3 rounded-xl mb-4">
+        <div className="flex items-center space-x-2 mb-3">
+          <Video className="w-4 h-4 text-purple-300" />
+          <h3 className="text-white font-medium text-sm">Video Platform Integration</h3>
+        </div>
+
+        <div className="space-y-3">
+          {/* Auto-activation toggle */}
+          <div className="flex items-center justify-between p-2 bg-white/5 rounded-lg">
+            <div className="flex items-center space-x-2">
+              <span className="text-white/80 text-sm">Auto-Activation</span>
+              <Info className="w-3 h-3 text-gray-400" title="Automatically adjust visibility when a meeting is detected" />
+            </div>
+            <button
+              onClick={toggleAutoActivate}
+              className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                autoActivateEnabled
+                  ? 'bg-green-500/30 text-green-300 border border-green-400/50'
+                  : 'bg-white/10 text-white/60 border border-white/20'
+              }`}
+            >
+              {autoActivateEnabled ? 'Enabled' : 'Disabled'}
+            </button>
+          </div>
+
+          {/* Detected platform status */}
+          {detectedPlatform ? (
+            <div className="p-3 bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-400/30 rounded-lg">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center space-x-2">
+                  <span className="text-2xl">{detectedPlatform.icon}</span>
+                  <div>
+                    <p className="text-white font-medium text-sm">{detectedPlatform.name}</p>
+                    <p className="text-white/60 text-xs">Platform detected</p>
+                  </div>
+                </div>
+                {isInMeeting ? (
+                  <div className="flex items-center space-x-1 px-2 py-1 bg-green-500/30 border border-green-400/50 rounded-full">
+                    <CheckCircle className="w-3 h-3 text-green-300" />
+                    <span className="text-green-300 text-xs font-semibold">In Meeting</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center space-x-1 px-2 py-1 bg-gray-500/30 border border-gray-400/50 rounded-full">
+                    <XCircle className="w-3 h-3 text-gray-300" />
+                    <span className="text-gray-300 text-xs font-semibold">No Meeting</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Platform-specific tips */}
+              {detectedPlatform && (
+                <div className="mt-2 p-2 bg-black/20 rounded">
+                  <p className="text-blue-300 text-xs font-semibold mb-1">💡 Tips for {detectedPlatform.name}:</p>
+                  <ul className="text-white/70 text-xs space-y-1">
+                    {PlatformDetectionService.getPlatformRecommendations(detectedPlatform.key).tips.map((tip, idx) => (
+                      <li key={idx} className="flex items-start space-x-1">
+                        <span>•</span>
+                        <span>{tip}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="p-3 bg-white/5 border border-white/10 rounded-lg">
+              <p className="text-white/60 text-xs text-center">
+                No video platform detected. Open Zoom, Teams, or Meet to enable auto-activation.
+              </p>
+            </div>
+          )}
+
+          {/* Supported platforms */}
+          <div className="p-2 bg-white/5 rounded-lg">
+            <p className="text-white/70 text-xs font-semibold mb-2">Supported Platforms:</p>
+            <div className="flex flex-wrap gap-2">
+              {Object.values(PlatformDetectionService.constructor.PLATFORMS).map((platform, idx) => (
+                <div key={idx} className="flex items-center space-x-1 px-2 py-1 bg-white/10 rounded-full">
+                  <span className="text-xs">{platform.icon}</span>
+                  <span className="text-white/70 text-xs">{platform.name}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
