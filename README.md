@@ -11,6 +11,46 @@ InterviewAce is a desktop application built with Electron that helps job seekers
 
 ## ✨ Features
 
+### 🎧 Dual Audio Capture **(✅ NEW - Phase 1)**
+- **Simultaneous capture** of system audio (interviewer) + microphone (you)
+- Powered by `electron-audio-loopback` for local-only processing
+- Real-time audio level indicators for both sources
+- Visual progress bars showing audio activity
+- Smart fallback to standard methods if loopback unavailable
+- No cloud dependencies - 100% local processing
+
+### 🌐 Multi-Language Support **(✅ NEW - 11 Languages)**
+- **11 languages** with full speech recognition support:
+  - 🇺🇸 English | 🇪🇸 Spanish | 🇫🇷 French | 🇩🇪 German
+  - 🇨🇳 Chinese | 🇯🇵 Japanese | 🇰🇷 Korean | 🇮🇳 Hindi
+  - 🇧🇷 Portuguese | 🇸🇦 Arabic | 🇷🇺 Russian
+- Instant language switching in Settings
+- AI responses in your selected language
+- Web Speech API auto-adapts to language
+- Browser language detection with localStorage persistence
+
+### 📹 Video Platform Integration **(✅ NEW - Auto-Detection)**
+- **Auto-detects** Zoom, Microsoft Teams, Google Meet, Webex, Skype
+- Monitors every 5 seconds for active meetings
+- **Auto-activation**: Switches to stealth mode when meeting starts
+- Platform-specific visibility recommendations
+- In Meeting / No Meeting status indicators
+- Platform icons and optimization tips
+- Toggle auto-activation on/off in Settings
+
+### 📄 Job Description Integration **(✅ NEW - Backend Complete)**
+- Upload JD files (PDF, DOCX, TXT) or paste text
+- AI-powered parsing extracts:
+  - Job title, company, location, experience level
+  - Required & preferred skills
+  - Responsibilities & qualifications
+  - Keywords for matching
+- **Skill matching** algorithm compares resume vs JD
+- Calculate match percentage (0-100%)
+- Identify matched and missing skills
+- Generate tailored interview questions for the role
+- *(Frontend UI coming soon)*
+
 ### 🎤 Real-Time Transcription
 - Live speech-to-text using Web Speech API
 - Continuous recording across all tabs
@@ -24,22 +64,23 @@ InterviewAce is a desktop application built with Electron that helps job seekers
 - ChatGPT-style streaming responses
 - Code syntax highlighting for technical questions
 - Conversation history tracking
+- **Multi-language AI responses**
 
-### 🎯 Practice Mode **(NEW)**
+### 🎯 Practice Mode
 - AI-generated interview questions tailored to your background
 - Three question types: Behavioral, Technical, Situational
 - Three difficulty levels: Easy, Medium, Hard
 - Comprehensive feedback and scoring system
 - Answer evaluation with detailed suggestions
 
-### 📊 Speech Analysis **(NEW)**
+### 📊 Speech Analysis
 - Filler word detection (um, uh, like, etc.)
 - Words per minute tracking
 - Clarity scoring
 - Duration measurement
 - Real-time feedback on speaking patterns
 
-### 📐 STAR Method Guidance **(NEW)**
+### 📐 STAR Method Guidance
 - Interactive framework guide for behavioral questions
 - Structured answer templates (Situation, Task, Action, Result)
 - Best practices and timing tips
@@ -52,11 +93,14 @@ InterviewAce is a desktop application built with Electron that helps job seekers
 - Smooth animations with Framer Motion
 - Centered window with optimal positioning
 
-### 🔧 Customization **(NEW)**
+### 🔧 Customization
 - Audio device selection (input/output)
+- **Dual audio mode toggle** (system + mic vs mic-only)
 - Keyboard shortcuts for quick access
 - Adjustable visibility modes
 - Custom window opacity
+- **Language selector** with 11 languages
+- **Video platform auto-activation** toggle
 
 ## 🏗️ Architecture
 
