@@ -1,0 +1,183 @@
+{
+  "app": {
+    "title": "InterviewAce",
+    "subtitle": "Asistente de Entrevista con IA"
+  },
+  "tabs": {
+    "chat": "Chat",
+    "transcript": "Transcripción",
+    "resume": "Currículum",
+    "practice": "Práctica",
+    "settings": "Configuración"
+  },
+  "chat": {
+    "title": "Asistente de Entrevista IA",
+    "placeholder": "Haz una pregunta o describe la pregunta de la entrevista...",
+    "send": "Enviar",
+    "generating": "Generando respuesta...",
+    "error": "Error al generar respuesta",
+    "noResume": "Sube tu currículum primero para obtener respuestas personalizadas",
+    "uploadResume": "Subir Currículum",
+    "copyCode": "Copiar Código",
+    "copied": "¡Copiado!"
+  },
+  "transcript": {
+    "title": "Transcripción en Vivo",
+    "start": "Iniciar Grabación",
+    "stop": "Detener Grabación",
+    "clear": "Limpiar",
+    "export": "Exportar",
+    "recording": "Grabando...",
+    "stopped": "Detenido",
+    "interviewer": "Entrevistador",
+    "you": "Tú",
+    "empty": "Sin transcripción aún. Comienza a grabar para capturar la conversación.",
+    "exportSuccess": "¡Transcripción exportada con éxito!",
+    "cleared": "Transcripción limpiada"
+  },
+  "resume": {
+    "title": "Sube tu Currículum",
+    "upload": "Subir Currículum",
+    "dragDrop": "Arrastra y suelta tu currículum aquí, o haz clic para seleccionar",
+    "supportedFormats": "Formatos: PDF, DOCX, TXT",
+    "processing": "Procesando currículum...",
+    "uploaded": "¡Currículum subido con éxito!",
+    "error": "Error al subir currículum",
+    "summary": "Resumen del Currículum",
+    "noResume": "Aún no se ha subido ningún currículum"
+  },
+  "practice": {
+    "title": "Modo Práctica",
+    "subtitle": "Simula una entrevista real con preguntas generadas por IA",
+    "role": "Puesto de Trabajo",
+    "rolePlaceholder": "ej., Ingeniero de Software, Gerente de Producto",
+    "level": "Nivel de Experiencia",
+    "levels": {
+      "entry": "Nivel Inicial (0-2 años)",
+      "mid": "Nivel Medio (3-5 años)",
+      "senior": "Nivel Senior (6+ años)",
+      "lead": "Líder/Principal (10+ años)"
+    },
+    "start": "Iniciar Sesión de Práctica",
+    "stop": "Detener Sesión",
+    "next": "Siguiente Pregunta",
+    "questionNumber": "Pregunta {{current}} de {{total}}",
+    "yourAnswer": "Tu Respuesta",
+    "recording": "Grabando tu respuesta...",
+    "analyzing": "Analizando tu respuesta...",
+    "feedback": "Retroalimentación de IA",
+    "speechAnalysis": "Análisis del Habla",
+    "fillerWords": "Muletillas",
+    "wordsPerMinute": "Palabras/Min",
+    "clarity": "Puntuación de Claridad",
+    "starMethod": "Guía del Método STAR",
+    "noSession": "Inicia una sesión de práctica para comenzar",
+    "generateError": "Error al generar pregunta de práctica",
+    "analyzeError": "Error al analizar respuesta"
+  },
+  "settings": {
+    "title": "Configuración",
+    "language": "Idioma",
+    "languageDescription": "Selecciona tu idioma preferido para la interfaz y reconocimiento de voz",
+    "theme": "Tema",
+    "themeDescription": "Elige tu tema de color preferido",
+    "themes": {
+      "light": "Claro",
+      "dark": "Oscuro",
+      "auto": "Automático"
+    },
+    "audioDevice": "Micrófono",
+    "audioDeviceDescription": "Selecciona tu micrófono para grabar",
+    "defaultDevice": "Micrófono Predeterminado",
+    "testMic": "Probar Micrófono",
+    "testing": "Probando...",
+    "visibility": "Visibilidad de Ventana",
+    "visibilityDescription": "Controla qué tan visible es la aplicación durante las entrevistas",
+    "visibilityModes": {
+      "normal": "Normal (95% opacidad)",
+      "stealth": "Sigiloso (15% opacidad)",
+      "ghost": "Fantasma (5% opacidad)",
+      "adaptive": "Adaptativo (70% opacidad)"
+    },
+    "shortcuts": "Atajos de Teclado",
+    "shortcutsList": {
+      "cycleMode": "Cambiar Modos de Visibilidad",
+      "stealth": "Modo Sigiloso Rápido",
+      "ghost": "Modo Fantasma",
+      "normal": "Modo Normal",
+      "hide": "Ocultar/Mostrar Ventana",
+      "focus": "Enfocar Ventana"
+    },
+    "about": "Acerca de",
+    "version": "Versión",
+    "credits": "Creado con asistencia de IA"
+  },
+  "languages": {
+    "en": "English",
+    "es": "Español",
+    "fr": "Français",
+    "de": "Deutsch",
+    "zh": "中文",
+    "ja": "日本語",
+    "ko": "한국어",
+    "hi": "हिन्दी",
+    "pt": "Português",
+    "ar": "العربية",
+    "ru": "Русский"
+  },
+  "audio": {
+    "dualCapture": "Captura de Audio Dual",
+    "enabled": "Activado",
+    "disabled": "Desactivado",
+    "systemAudio": "Audio del Sistema",
+    "microphone": "Micrófono",
+    "captureDescription": "Capturará tanto el audio del sistema como el micrófono",
+    "micOnlyDescription": "Solo capturará el micrófono",
+    "listening": "Escuchando audio del sistema y micrófono...",
+    "micListening": "Habla en tu micrófono..."
+  },
+  "starMethod": {
+    "title": "Marco del Método STAR",
+    "subtitle": "Estructura tus respuestas de entrevista conductual",
+    "situation": "Situación",
+    "situationDesc": "Establece el escenario y contexto",
+    "task": "Tarea",
+    "taskDesc": "Describe tu responsabilidad",
+    "action": "Acción",
+    "actionDesc": "Explica lo que hiciste",
+    "result": "Resultado",
+    "resultDesc": "Comparte el resultado",
+    "example": "Ejemplo",
+    "tips": "Consejos para el Éxito",
+    "tip1": "Sé específico con números y métricas",
+    "tip2": "Enfócate en TUS acciones, no las del equipo",
+    "tip3": "Cuantifica los resultados cuando sea posible",
+    "tip4": "Mantén las respuestas entre 1-2 minutos"
+  },
+  "common": {
+    "close": "Cerrar",
+    "cancel": "Cancelar",
+    "save": "Guardar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "loading": "Cargando...",
+    "error": "Error",
+    "success": "Éxito",
+    "confirm": "Confirmar",
+    "yes": "Sí",
+    "no": "No",
+    "back": "Atrás",
+    "next": "Siguiente",
+    "previous": "Anterior",
+    "finish": "Finalizar",
+    "skip": "Saltar"
+  },
+  "errors": {
+    "speechRecognitionNotSupported": "Reconocimiento de voz no compatible en este navegador. Usa Chrome o Edge.",
+    "microphoneAccessDenied": "Acceso al micrófono denegado. Por favor permite el acceso al micrófono en la configuración de tu navegador.",
+    "networkError": "Error de red. Por favor verifica tu conexión a internet.",
+    "serviceNotAvailable": "Servicio de reconocimiento de voz no disponible. Por favor verifica tu conexión a internet.",
+    "audioCaptureFailed": "No se pudo capturar el audio del sistema. Usando solo micrófono.",
+    "unknown": "Ocurrió un error desconocido. Por favor intenta de nuevo."
+  }
+}
