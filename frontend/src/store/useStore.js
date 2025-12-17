@@ -56,6 +56,12 @@ const useStore = create((set, get) => ({
   audioOutputDevice: null,
   setAudioInputDevice: (deviceId) => set({ audioInputDevice: deviceId }),
   setAudioOutputDevice: (deviceId) => set({ audioOutputDevice: deviceId }),
+
+  // Company prep
+  selectedCompany: null,
+  companyTips: null,
+  setSelectedCompany: (company) => set({ selectedCompany: company }),
+  setCompanyTips: (tips) => set({ companyTips: tips }),
 }));
 
 export default useStore;

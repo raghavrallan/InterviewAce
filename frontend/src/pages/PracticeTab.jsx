@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Play, Square, Sparkles, Target, Clock, TrendingUp, Star } from 'lucide-react';
+import { Play, Square, Sparkles, Target, Clock, TrendingUp, Star, Building2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -9,7 +9,7 @@ import toast from 'react-hot-toast';
 import STARMethodGuide from '../components/STARMethodGuide';
 
 function PracticeTab() {
-  const { resumeContext, isRecording, setIsRecording } = useStore();
+  const { resumeContext, isRecording, setIsRecording, selectedCompany } = useStore();
   const [currentQuestion, setCurrentQuestion] = useState(null);
   const [practiceHistory, setPracticeHistory] = useState([]);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -41,34 +41,73 @@ function PracticeTab() {
 
     setIsGenerating(true);
     try {
-      const response = await fetch('http://localhost:5000/api/practice/generate-question', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          resumeContext,
-          questionType,
-          difficulty,
-          previousQuestions: practiceHistory.map(q => q.question)
-        }),
-      });
+      let response, data;
 
-      const data = await response.json();
-
-      if (data.success) {
-        setCurrentQuestion({
-          id: Date.now(),
-          question: data.data.question,
-          type: questionType,
-          difficulty: difficulty,
-          hints: data.data.hints || [],
-          expectedFramework: data.data.framework || 'STAR'
+      // Use company-specific questions if a company is selected
+      if (selectedCompany) {
+        response = await fetch(`http://localhost:5000/api/company/${selectedCompany.id}/generate-questions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            resumeText: resumeContext,
+            questionType,
+            count: 1
+          }),
         });
-        setUserAnswer('');
-        setFeedback(null);
-        setSpeechMetrics({ fillerWords: 0, wordsPerMinute: 0, duration: 0, clarity: 0 });
-        toast.success('New practice question generated!');
+
+        data = await response.json();
+
+        if (data.success && data.data.questions && data.data.questions.length > 0) {
+          const companyQuestion = data.data.questions[0];
+          setCurrentQuestion({
+            id: Date.now(),
+            question: companyQuestion.question,
+            type: companyQuestion.category,
+            difficulty: companyQuestion.difficulty,
+            hints: [],
+            expectedFramework: 'STAR',
+            company: selectedCompany.name,
+            focusArea: companyQuestion.focusArea,
+            explanation: companyQuestion.explanation
+          });
+          setUserAnswer('');
+          setFeedback(null);
+          setSpeechMetrics({ fillerWords: 0, wordsPerMinute: 0, duration: 0, clarity: 0 });
+          toast.success(`${selectedCompany.name} question generated!`);
+        } else {
+          toast.error(data.error || 'Failed to generate company question');
+        }
       } else {
-        toast.error(data.error || 'Failed to generate question');
+        // Use regular practice questions
+        response = await fetch('http://localhost:5000/api/practice/generate-question', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            resumeContext,
+            questionType,
+            difficulty,
+            previousQuestions: practiceHistory.map(q => q.question)
+          }),
+        });
+
+        data = await response.json();
+
+        if (data.success) {
+          setCurrentQuestion({
+            id: Date.now(),
+            question: data.data.question,
+            type: questionType,
+            difficulty: difficulty,
+            hints: data.data.hints || [],
+            expectedFramework: data.data.framework || 'STAR'
+          });
+          setUserAnswer('');
+          setFeedback(null);
+          setSpeechMetrics({ fillerWords: 0, wordsPerMinute: 0, duration: 0, clarity: 0 });
+          toast.success('New practice question generated!');
+        } else {
+          toast.error(data.error || 'Failed to generate question');
+        }
       }
     } catch (error) {
       console.error('Error:', error);
@@ -173,7 +212,17 @@ function PracticeTab() {
   return (
     <div className="glass-panel h-full flex flex-col p-4">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-white font-semibold text-lg">Practice Interview</h2>
+        <div>
+          <h2 className="text-white font-semibold text-lg">Practice Interview</h2>
+          {selectedCompany && (
+            <div className="flex items-center space-x-1 mt-1">
+              <Building2 className="w-3 h-3 text-purple-300" />
+              <span className="text-purple-300 text-xs font-medium">
+                Preparing for {selectedCompany.name}
+              </span>
+            </div>
+          )}
+        </div>
         <div className="flex items-center space-x-2">
           <select
             value={questionType}
@@ -235,9 +284,35 @@ function PracticeTab() {
                 </span>
               )}
             </div>
+
+            {currentQuestion.company && (
+              <div className="mb-3 p-2 bg-purple-500/20 border border-purple-400/30 rounded-lg">
+                <div className="flex items-center space-x-2 mb-1">
+                  <Building2 className="w-3 h-3 text-purple-300" />
+                  <span className="text-purple-300 text-xs font-semibold">
+                    {currentQuestion.company} Interview Question
+                  </span>
+                </div>
+                {currentQuestion.focusArea && (
+                  <p className="text-white/70 text-xs">
+                    <strong>Focus Area:</strong> {currentQuestion.focusArea}
+                  </p>
+                )}
+              </div>
+            )}
+
             <p className="text-white text-sm leading-relaxed mb-3">
               {currentQuestion.question}
             </p>
+
+            {currentQuestion.explanation && (
+              <div className="mt-3 p-2 bg-blue-500/10 border border-blue-400/20 rounded">
+                <p className="text-blue-300 text-xs font-semibold mb-1">💡 Why this question?</p>
+                <p className="text-white/70 text-xs leading-relaxed">
+                  {currentQuestion.explanation}
+                </p>
+              </div>
+            )}
             {currentQuestion.hints && currentQuestion.hints.length > 0 && (
               <div className="mt-3 pt-3 border-t border-white/10">
                 <p className="text-gray-400 text-xs mb-2">💡 Hints:</p>

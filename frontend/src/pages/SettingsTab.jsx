@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Settings, Key, Keyboard, Info, Eye, EyeOff, Ghost, Layers, Mic, Headphones, Globe, Video, CheckCircle, XCircle } from 'lucide-react';
+import { Settings, Key, Keyboard, Info, Eye, EyeOff, Ghost, Layers, Mic, Headphones, Globe, Video, CheckCircle, XCircle, Briefcase, Building2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import useStore from '../store/useStore';
@@ -9,7 +9,7 @@ import PlatformDetectionService from '../services/PlatformDetectionService';
 
 function SettingsTab() {
   const { t, i18n } = useTranslation();
-  const { visibilityMode, audioInputDevice, audioOutputDevice, setAudioInputDevice, setAudioOutputDevice } = useStore();
+  const { visibilityMode, audioInputDevice, audioOutputDevice, setAudioInputDevice, setAudioOutputDevice, selectedCompany, setSelectedCompany, setCompanyTips } = useStore();
   const [audioInputDevices, setAudioInputDevices] = useState([]);
   const [audioOutputDevices, setAudioOutputDevices] = useState([]);
   const [currentLanguage, setCurrentLanguage] = useState(i18n.language);
@@ -18,6 +18,8 @@ function SettingsTab() {
   const [autoActivateEnabled, setAutoActivateEnabled] = useState(() => {
     return localStorage.getItem('autoActivateOnMeeting') !== 'false';
   });
+  const [companies, setCompanies] = useState([]);
+  const [companiesLoading, setCompaniesLoading] = useState(false);
 
   // Enumerate audio devices
   useEffect(() => {
@@ -67,6 +69,61 @@ function SettingsTab() {
     await i18n.changeLanguage(newLanguage);
     setCurrentLanguage(newLanguage);
     toast.success(`Language changed to ${SUPPORTED_LANGUAGES.find(l => l.code === newLanguage)?.name || 'English'}`);
+  };
+
+  // Fetch companies on mount
+  useEffect(() => {
+    const fetchCompanies = async () => {
+      setCompaniesLoading(true);
+      try {
+        const response = await fetch('http://localhost:5000/api/company/list');
+        const data = await response.json();
+
+        if (data.success) {
+          setCompanies(data.data.companies);
+        } else {
+          toast.error('Failed to load companies');
+        }
+      } catch (error) {
+        console.error('Failed to fetch companies:', error);
+        toast.error('Failed to load companies');
+      } finally {
+        setCompaniesLoading(false);
+      }
+    };
+
+    fetchCompanies();
+  }, []);
+
+  const handleCompanyChange = async (e) => {
+    const companyId = e.target.value;
+
+    if (!companyId || companyId === 'none') {
+      setSelectedCompany(null);
+      setCompanyTips(null);
+      localStorage.removeItem('selectedCompany');
+      toast.success('Company deselected');
+      return;
+    }
+
+    try {
+      // Fetch company tips
+      const response = await fetch(`http://localhost:5000/api/company/${companyId}/tips`);
+      const data = await response.json();
+
+      if (data.success) {
+        const company = companies.find(c => c.id === companyId);
+        setSelectedCompany(company);
+        setCompanyTips(data.data);
+        localStorage.setItem('selectedCompany', companyId);
+        toast.success(`Selected ${company.name} for interview prep`);
+      } else {
+        toast.error('Failed to load company details');
+      }
+    } catch (error) {
+      console.error('Failed to fetch company tips:', error);
+      toast.error('Failed to load company details');
+    }
   };
 
   const toggleAutoActivate = () => {
@@ -197,6 +254,67 @@ function SettingsTab() {
               Speech recognition accuracy may vary by language and requires internet connection.
             </p>
           </div>
+        </div>
+      </div>
+
+      {/* Company-Specific Interview Prep */}
+      <div className="glass-panel-dark p-3 rounded-xl mb-4">
+        <div className="flex items-center space-x-2 mb-3">
+          <Building2 className="w-4 h-4 text-purple-300" />
+          <h3 className="text-white font-medium text-sm">Interview Prep Company</h3>
+        </div>
+
+        <div className="space-y-3">
+          <select
+            value={selectedCompany?.id || 'none'}
+            onChange={handleCompanyChange}
+            disabled={companiesLoading}
+            className="w-full glass-input text-sm"
+          >
+            <option value="none">No company selected</option>
+            {companies.map((company) => (
+              <option key={company.id} value={company.id}>
+                {company.name} - {company.industry}
+              </option>
+            ))}
+          </select>
+
+          {companiesLoading && (
+            <div className="text-center py-2">
+              <div className="w-6 h-6 rounded-full border-2 border-purple-500 border-t-transparent animate-spin mx-auto"></div>
+              <p className="text-white/60 text-xs mt-2">Loading companies...</p>
+            </div>
+          )}
+
+          {selectedCompany && (
+            <div className="p-3 bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-400/30 rounded-lg">
+              <div className="flex items-center space-x-2 mb-2">
+                <Briefcase className="w-5 h-5 text-purple-300" />
+                <div>
+                  <p className="text-white font-medium text-sm">{selectedCompany.name}</p>
+                  <p className="text-white/60 text-xs">{selectedCompany.industry} • {selectedCompany.size}</p>
+                </div>
+              </div>
+
+              <div className="mt-3 space-y-2">
+                <div className="p-2 bg-black/20 rounded">
+                  <p className="text-blue-300 text-xs font-semibold mb-1">📍 Headquarters:</p>
+                  <p className="text-white/70 text-xs">{selectedCompany.headquarters}</p>
+                </div>
+
+                <div className="flex items-center space-x-1 p-2 bg-green-500/20 border border-green-400/40 rounded">
+                  <CheckCircle className="w-3 h-3 text-green-300 flex-shrink-0" />
+                  <p className="text-green-300 text-xs">
+                    Company-specific questions enabled in Practice mode
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <p className="text-gray-400 text-xs leading-relaxed">
+            Select a company to get tailored interview questions, culture tips, and preparation guidance specific to that organization.
+          </p>
         </div>
       </div>
 
