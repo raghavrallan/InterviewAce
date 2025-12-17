@@ -19,6 +19,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getWindowPosition: () => ipcRenderer.invoke('get-window-position'),
   setWindowPosition: (x, y) => ipcRenderer.invoke('set-window-position', { x, y }),
 
+  // Video platform detection
+  getOpenWindows: () => ipcRenderer.invoke('get-open-windows'),
+  autoAdjustForPlatform: (platform) => ipcRenderer.invoke('auto-adjust-for-platform', platform),
+
   // Platform info
   platform: process.platform
 });
