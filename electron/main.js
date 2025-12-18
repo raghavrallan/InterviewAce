@@ -50,9 +50,9 @@ function createWindow() {
   });
 
   // Open DevTools in development (optional - comment out if not needed)
-  // if (isDev) {
-  //   mainWindow.webContents.openDevTools({ mode: 'detach' });
-  // }
+  if (isDev) {
+    mainWindow.webContents.openDevTools({ mode: 'detach' });
+  }
 
   // Prevent window from being captured in screen share (experimental)
   mainWindow.setContentProtection(true);
