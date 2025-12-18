@@ -112,43 +112,72 @@ function applyVisibilityMode(mode) {
 
 // Register global shortcuts
 function registerShortcuts() {
+  // Unregister all shortcuts first to avoid conflicts
+  globalShortcut.unregisterAll();
+
   // Cycle visibility modes: Ctrl+Shift+V
-  globalShortcut.register('CommandOrControl+Shift+V', () => {
-    const newMode = cycleVisibilityMode();
-    console.log(`Switched to: ${newMode.toUpperCase()} mode`);
-  });
-
-  // Quick stealth: Ctrl+Shift+S
-  globalShortcut.register('CommandOrControl+Shift+S', () => {
-    setVisibilityMode('stealth');
-  });
-
-  // Ghost mode: Ctrl+Shift+G
-  globalShortcut.register('CommandOrControl+Shift+G', () => {
-    setVisibilityMode('ghost');
-  });
-
-  // Normal mode: Ctrl+Shift+N
-  globalShortcut.register('CommandOrControl+Shift+N', () => {
-    setVisibilityMode('normal');
-  });
-
-  // Toggle window visibility: Ctrl+Shift+H
-  globalShortcut.register('CommandOrControl+Shift+H', () => {
-    if (mainWindow.isVisible()) {
-      mainWindow.hide();
-    } else {
-      mainWindow.show();
-      setVisibilityMode('normal');
+  const v = globalShortcut.register('CommandOrControl+Shift+V', () => {
+    if (mainWindow) {
+      const newMode = cycleVisibilityMode();
+      console.log(`✅ Switched to: ${newMode.toUpperCase()} mode`);
     }
   });
+  console.log('Ctrl+Shift+V registered:', v);
+
+  // Quick stealth: Ctrl+Shift+S
+  const s = globalShortcut.register('CommandOrControl+Shift+S', () => {
+    if (mainWindow) {
+      setVisibilityMode('stealth');
+      console.log('✅ Switched to STEALTH mode');
+    }
+  });
+  console.log('Ctrl+Shift+S registered:', s);
+
+  // Ghost mode: Ctrl+Shift+G
+  const g = globalShortcut.register('CommandOrControl+Shift+G', () => {
+    if (mainWindow) {
+      setVisibilityMode('ghost');
+      console.log('✅ Switched to GHOST mode');
+    }
+  });
+  console.log('Ctrl+Shift+G registered:', g);
+
+  // Normal mode: Ctrl+Shift+N
+  const n = globalShortcut.register('CommandOrControl+Shift+N', () => {
+    if (mainWindow) {
+      setVisibilityMode('normal');
+      console.log('✅ Switched to NORMAL mode');
+    }
+  });
+  console.log('Ctrl+Shift+N registered:', n);
+
+  // Toggle window visibility: Ctrl+Shift+H
+  const h = globalShortcut.register('CommandOrControl+Shift+H', () => {
+    if (mainWindow) {
+      if (mainWindow.isVisible()) {
+        mainWindow.hide();
+        console.log('✅ Window HIDDEN');
+      } else {
+        mainWindow.show();
+        setVisibilityMode('normal');
+        console.log('✅ Window SHOWN');
+      }
+    }
+  });
+  console.log('Ctrl+Shift+H registered:', h);
 
   // Focus window: Ctrl+Shift+A
-  globalShortcut.register('CommandOrControl+Shift+A', () => {
-    mainWindow.show();
-    mainWindow.focus();
-    setVisibilityMode('normal');
+  const a = globalShortcut.register('CommandOrControl+Shift+A', () => {
+    if (mainWindow) {
+      mainWindow.show();
+      mainWindow.focus();
+      setVisibilityMode('normal');
+      console.log('✅ Window FOCUSED');
+    }
   });
+  console.log('Ctrl+Shift+A registered:', a);
+
+  console.log('🎹 All keyboard shortcuts registered successfully');
 }
 
 app.whenReady().then(() => {
