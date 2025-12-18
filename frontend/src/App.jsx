@@ -9,7 +9,7 @@ import ChatTab from './pages/ChatTab';
 import PracticeTab from './pages/PracticeTab';
 import ResumeTab from './pages/ResumeTab';
 import SettingsTab from './pages/SettingsTab';
-import WebSpeechSTT from './components/WebSpeechSTT';
+import WhisperSTT from './components/WhisperSTT';
 import useAudioCapture from './hooks/useAudioCapture';
 
 function App() {
@@ -77,7 +77,7 @@ function App() {
       </div>
 
       {/* Global Speech Recognition - works across all tabs */}
-      <WebSpeechSTT isRecording={isRecording} onTranscript={handleNewTranscript} />
+      <WhisperSTT isRecording={isRecording} onTranscript={handleNewTranscript} />
     </div>
   );
 }
