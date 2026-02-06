@@ -22,36 +22,6 @@ function ChatTab() {
     }
   }, [messages, streamingText]);
 
-  const simulateTyping = async (fullText) => {
-    setIsStreaming(true);
-    setStreamingText('');
-    streamingMessageIdRef.current = Date.now();
-
-    const words = fullText.split(' ');
-    let currentText = '';
-
-    for (let i = 0; i < words.length; i++) {
-      currentText += (i > 0 ? ' ' : '') + words[i];
-      setStreamingText(currentText);
-
-      // Variable speed: faster for common words, slower for code blocks
-      const delay = words[i].includes('```') ? 100 : (Math.random() * 30 + 20);
-      await new Promise(resolve => setTimeout(resolve, delay));
-    }
-
-    // Add the complete message
-    addMessage({
-      id: streamingMessageIdRef.current,
-      type: 'assistant',
-      text: fullText,
-      timestamp: new Date().toISOString(),
-    });
-
-    setIsStreaming(false);
-    setStreamingText('');
-    streamingMessageIdRef.current = null;
-  };
-
   const handleSend = async () => {
     if (!input.trim() || isLoading || isStreaming) return;
 
@@ -71,9 +41,13 @@ function ChatTab() {
     const currentInput = input;
     setInput('');
     setIsLoading(true);
+    setIsStreaming(true);
+    setStreamingText('');
+    streamingMessageIdRef.current = Date.now();
 
     try {
-      const response = await fetch('http://localhost:5000/api/chat/answer', {
+      // Use streaming endpoint for real-time responses
+      const response = await fetch('http://localhost:5000/api/chat/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -86,36 +60,76 @@ function ChatTab() {
         }),
       });
 
-      const data = await response.json();
+      if (!response.ok) {
+        throw new Error('Failed to connect to streaming endpoint');
+      }
 
-      setIsLoading(false);
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let fullText = '';
 
-      if (data.success) {
-        // Use typing effect
-        await simulateTyping(data.data.answer);
-      } else {
-        // Show detailed error message from backend
-        const errorMessage = data.error || 'Failed to get response';
-        toast.error(errorMessage, {
-          duration: 5000,
-          style: {
-            maxWidth: '500px',
+      setIsLoading(false); // Stop loading spinner, start streaming
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            if (data === '[DONE]') continue;
+
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.chunk) {
+                fullText += parsed.chunk;
+                setStreamingText(fullText);
+              }
+              if (parsed.error) {
+                throw new Error(parsed.error);
+              }
+            } catch (e) {
+              // Ignore JSON parse errors for incomplete chunks
+              if (e.message && !e.message.includes('JSON')) {
+                throw e;
+              }
+            }
           }
-        });
+        }
+      }
 
-        // Also add error as a message for context
+      // Add the complete message
+      if (fullText) {
         addMessage({
-          id: Date.now(),
+          id: streamingMessageIdRef.current,
           type: 'assistant',
-          text: `❌ Error: ${errorMessage}`,
+          text: fullText,
           timestamp: new Date().toISOString(),
         });
       }
     } catch (error) {
       console.error('Error:', error);
       const errorMsg = error.message || 'Failed to send message. Please check your connection.';
-      toast.error(errorMsg);
+      toast.error(errorMsg, {
+        duration: 5000,
+        style: { maxWidth: '500px' }
+      });
+
+      // Add error as a message for context
+      addMessage({
+        id: Date.now(),
+        type: 'assistant',
+        text: `Error: ${errorMsg}`,
+        timestamp: new Date().toISOString(),
+      });
       setIsLoading(false);
+    } finally {
+      setIsStreaming(false);
+      setStreamingText('');
+      streamingMessageIdRef.current = null;
     }
   };
 

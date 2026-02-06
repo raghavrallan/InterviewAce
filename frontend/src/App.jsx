@@ -13,7 +13,7 @@ import WhisperSTT from './components/WhisperSTT';
 import useAudioCapture from './hooks/useAudioCapture';
 
 function App() {
-  const { activeTab, visibilityMode, isRecording, addTranscript } = useStore();
+  const { activeTab, isRecording, addTranscript } = useStore();
   const { hasPermission } = useAudioCapture(isRecording);
 
   const handleNewTranscript = (transcript) => {
@@ -39,7 +39,7 @@ function App() {
 
   return (
     <div
-      className={`w-screen h-screen gradient-bg overflow-hidden visibility-${visibilityMode}`}
+      className="w-screen h-screen gradient-bg overflow-hidden"
     >
       <Toaster
         position="top-center"

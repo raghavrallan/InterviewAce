@@ -1,24 +1,7 @@
-const { AzureOpenAI } = require('openai');
+const aiProvider = require('./aiProvider');
 const logger = require('../utils/logger');
 
 class JobDescriptionService {
-  constructor() {
-    this._openai = null;
-  }
-
-  // Lazy initialization of Azure OpenAI client
-  get openai() {
-    if (!this._openai) {
-      this._openai = new AzureOpenAI({
-        apiKey: process.env.AZURE_OPENAI_API_KEY,
-        endpoint: process.env.AZURE_OPENAI_ENDPOINT,
-        apiVersion: process.env.AZURE_OPENAI_API_VERSION,
-        deployment: process.env.AZURE_OPENAI_DEPLOYMENT
-      });
-    }
-    return this._openai;
-  }
-
   /**
    * Parse job description and extract key information
    */
@@ -48,23 +31,23 @@ Extract and return ONLY a JSON object with these fields:
 Focus on technical skills, programming languages, frameworks, tools, and soft skills.
 Return ONLY the JSON, no additional text.`;
 
-      const response = await this.openai.chat.completions.create({
-        model: process.env.AZURE_OPENAI_DEPLOYMENT,
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a job description analyzer. Extract structured information and return only valid JSON.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
+      const messages = [
+        {
+          role: 'system',
+          content: 'You are a job description analyzer. Extract structured information and return only valid JSON.'
+        },
+        {
+          role: 'user',
+          content: prompt
+        }
+      ];
+
+      const response = await aiProvider.chat(messages, {
         temperature: 0.3,
         max_tokens: 1500
       });
 
-      const content = response.choices[0].message.content.trim();
+      const content = aiProvider.getContent(response).trim();
 
       // Try to parse JSON
       try {
@@ -122,23 +105,23 @@ Return ONLY a JSON object with:
 
 Return ONLY the JSON, no additional text.`;
 
-      const response = await this.openai.chat.completions.create({
-        model: process.env.AZURE_OPENAI_DEPLOYMENT,
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a skill matching expert. Analyze and return only valid JSON.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
+      const messages = [
+        {
+          role: 'system',
+          content: 'You are a skill matching expert. Analyze and return only valid JSON.'
+        },
+        {
+          role: 'user',
+          content: prompt
+        }
+      ];
+
+      const response = await aiProvider.chat(messages, {
         temperature: 0.3,
         max_tokens: 1000
       });
 
-      const content = response.choices[0].message.content.trim();
+      const content = aiProvider.getContent(response).trim();
 
       // Try to parse JSON
       try {
@@ -195,23 +178,23 @@ Return ONLY a JSON array:
 
 Return ONLY the JSON array, no additional text.`;
 
-      const response = await this.openai.chat.completions.create({
-        model: process.env.AZURE_OPENAI_DEPLOYMENT,
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an interview question generator. Return only valid JSON.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
+      const messages = [
+        {
+          role: 'system',
+          content: 'You are an interview question generator. Return only valid JSON.'
+        },
+        {
+          role: 'user',
+          content: prompt
+        }
+      ];
+
+      const response = await aiProvider.chat(messages, {
         temperature: 0.7,
         max_tokens: 1500
       });
 
-      const content = response.choices[0].message.content.trim();
+      const content = aiProvider.getContent(response).trim();
 
       // Try to parse JSON
       try {

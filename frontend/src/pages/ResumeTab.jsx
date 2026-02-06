@@ -153,13 +153,14 @@ function ResumeTab() {
   });
 
   return (
-    <div className="glass-panel h-full flex flex-col p-4">
-      <h2 className="text-white font-semibold text-lg mb-4">Resume Upload</h2>
+    <div className="glass-panel h-full flex flex-col p-4 overflow-hidden">
+      <h2 className="text-white font-semibold text-lg mb-4 flex-shrink-0">Resume Upload</h2>
 
+      <div className="flex-1 overflow-y-auto custom-scrollbar">
       {!resume ? (
         <motion.div
           {...getRootProps()}
-          className={`flex-1 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all ${
+          className={`min-h-[300px] border-2 border-dashed rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all ${
             isDragActive
               ? 'border-purple-400 bg-purple-500/20'
               : 'border-white/30 hover:border-white/50 hover:bg-white/5'
@@ -190,7 +191,7 @@ function ResumeTab() {
           )}
         </motion.div>
       ) : (
-        <div className="flex-1 flex flex-col">
+        <div className="flex flex-col">
           {/* Resume Info */}
           <div className="glass-panel-dark p-4 rounded-xl mb-4">
             <div className="flex items-center justify-between mb-3">
@@ -222,7 +223,7 @@ function ResumeTab() {
 
           {/* Summary */}
           {resumeSummary && (
-            <div className="flex-1 glass-panel-dark p-4 rounded-xl overflow-y-auto custom-scrollbar">
+            <div className="glass-panel-dark p-4 rounded-xl mb-4">
               <h3 className="text-purple-300 font-semibold mb-3">Resume Summary</h3>
               <p className="text-white/80 text-sm leading-relaxed whitespace-pre-wrap">
                 {resumeSummary}
@@ -397,6 +398,7 @@ function ResumeTab() {
           )}
         </div>
       )}
+      </div>
     </div>
   );
 }

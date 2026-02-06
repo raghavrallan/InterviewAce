@@ -160,9 +160,8 @@ InterviewAce/
 
 - **Node.js** 18+ and npm
 - **Docker** & Docker Compose (optional, for containerized deployment)
-- **OpenAI API Key** - ✅ Already configured!
+- **Azure OpenAI API Key** - ✅ Already configured!
 - **Modern Browser** - Chrome, Edge, or Safari (for Web Speech API)
-- **LiveKit Account** - ⚠️ OPTIONAL (we use free Web Speech API by default)
 
 ### Installation
 
@@ -178,16 +177,7 @@ InterviewAce/
 
 3. **Environment is ready!**
 
-   Your `.env` file is already configured with your OpenAI key!
-
-   **Note:** LiveKit is optional. We use Web Speech API (free, built-in) by default.
-
-   If you want to use LiveKit later, update these in `.env`:
-   ```env
-   LIVEKIT_API_KEY=your-livekit-api-key
-   LIVEKIT_API_SECRET=your-livekit-secret
-   LIVEKIT_URL=wss://your-project.livekit.cloud
-   ```
+   Your `.env` file is already configured with Azure OpenAI!
 
 4. **Start the application:**
 
@@ -259,12 +249,10 @@ InterviewAce/
 │   │   ├── routes/
 │   │   │   ├── resume.js         # Resume upload & parsing
 │   │   │   ├── chat.js           # GPT integration
-│   │   │   ├── livekit.js        # LiveKit room management
 │   │   │   └── transcript.js     # Transcript processing
 │   │   ├── services/
-│   │   │   ├── chatService.js    # OpenAI GPT service
+│   │   │   ├── chatService.js    # Azure OpenAI GPT service
 │   │   │   ├── resumeService.js  # Resume parsing
-│   │   │   ├── livekitService.js # LiveKit integration
 │   │   │   └── transcriptService.js # Transcript chunking
 │   │   └── utils/
 │   │       └── logger.js         # Winston logger
@@ -275,7 +263,7 @@ InterviewAce/
 │   │   ├── components/
 │   │   │   ├── Header.jsx        # Window controls
 │   │   │   ├── TabBar.jsx        # Tab navigation
-│   │   │   └── LiveKitAudio.jsx  # Audio streaming
+│   │   │   └── WebSpeechSTT.jsx  # Speech recognition
 │   │   ├── pages/
 │   │   │   ├── TranscriptTab.jsx # Live transcription
 │   │   │   ├── ChatTab.jsx       # AI chat interface
@@ -303,11 +291,6 @@ InterviewAce/
 - `POST /api/chat/answer-from-transcript` - Generate answer from transcript
 - `POST /api/chat/stream` - Stream GPT response
 
-#### LiveKit
-- `POST /api/livekit/create-room` - Create interview room
-- `POST /api/livekit/token` - Generate access token
-- `POST /api/livekit/end-room` - End interview session
-
 #### Transcript
 - `POST /api/transcript/process` - Process raw transcript
 - `POST /api/transcript/merge` - Merge chunks into sentences
@@ -320,13 +303,12 @@ InterviewAce/
 - Tailwind CSS
 - Framer Motion
 - Zustand
-- LiveKit Client
+- Web Speech API
 - Lucide Icons
 
 **Backend:**
 - Node.js + Express
-- OpenAI GPT-4
-- LiveKit Server SDK
+- Azure OpenAI GPT-4o-mini
 - Multer (file uploads)
 - PDF Parse / Mammoth
 - Winston (logging)
@@ -354,11 +336,6 @@ InterviewAce/
 **Always be honest and authentic in real interviews.**
 
 ## 🐛 Troubleshooting
-
-### "Failed to connect to audio service"
-- Check your LiveKit credentials in `.env`
-- Ensure LiveKit URL is correct and accessible
-- Verify your internet connection
 
 ### "Resume upload failed"
 - Check file size (max 10MB)

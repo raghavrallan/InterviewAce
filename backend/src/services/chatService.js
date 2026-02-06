@@ -1,4 +1,4 @@
-const { AzureOpenAI } = require('openai');
+const aiProvider = require('./aiProvider');
 const logger = require('../utils/logger');
 
 const SYSTEM_PROMPT = `You are an intelligent interview assistant helping a candidate answer interview questions.
@@ -40,23 +40,6 @@ Important guidelines:
 - Always use proper markdown formatting for readability`;
 
 class ChatService {
-  constructor() {
-    this._openai = null;
-  }
-
-  // Lazy initialization of Azure OpenAI client
-  get openai() {
-    if (!this._openai) {
-      this._openai = new AzureOpenAI({
-        apiKey: process.env.AZURE_OPENAI_API_KEY,
-        endpoint: process.env.AZURE_OPENAI_ENDPOINT,
-        apiVersion: process.env.AZURE_OPENAI_API_VERSION,
-        deployment: process.env.AZURE_OPENAI_DEPLOYMENT
-      });
-    }
-    return this._openai;
-  }
-
   async generateAnswer({ question, resumeContext, conversationHistory = [], language = 'en' }) {
     try {
       // Language mapping for natural language names
@@ -96,40 +79,15 @@ class ChatService {
         }
       ];
 
-      const response = await this.openai.chat.completions.create({
-        model: process.env.AZURE_OPENAI_DEPLOYMENT,
-        messages,
+      const response = await aiProvider.chat(messages, {
         temperature: 0.7,
         max_tokens: 500
       });
 
-      return response.choices[0].message.content;
+      return aiProvider.getContent(response);
     } catch (error) {
-      logger.error('OpenAI API error:', error);
-
-      // Handle specific error types
-      if (error.status === 429 || error.code === 'insufficient_quota' || (error.error && error.error.code === 'insufficient_quota')) {
-        const err = new Error('⚠️ OpenAI API Quota Exceeded\n\nYour Azure OpenAI or OpenAI API key has run out of credits.\n\nPlease:\n1. Check your Azure OpenAI quota at portal.azure.com\n2. Or add credits to your OpenAI account at platform.openai.com\n3. Update your API keys in the .env file if needed\n\nThen try again.');
-        err.status = 429;
-        throw err;
-      }
-
-      if (error.status === 401 || error.code === 'invalid_api_key') {
-        const err = new Error('⚠️ API Key Invalid\n\nPlease check your Azure OpenAI or OpenAI API key in the .env file.');
-        err.status = 401;
-        throw err;
-      }
-
-      if (error.status === 403) {
-        const err = new Error('⚠️ API Access Forbidden\n\nYour API key does not have access to this model. Please check your Azure OpenAI deployment or OpenAI model access.');
-        err.status = 403;
-        throw err;
-      }
-
-      // Include the full error message for debugging
-      const err = new Error(`Failed to generate answer: ${error.message || error.toString() || 'Unknown error'}`);
-      err.status = error.status || 500;
-      throw err;
+      logger.error('Chat service error:', error);
+      throw error; // aiProvider already handles error formatting
     }
   }
 
@@ -151,39 +109,37 @@ class ChatService {
         }
       ];
 
-      const response = await this.openai.chat.completions.create({
-        model: process.env.AZURE_OPENAI_DEPLOYMENT,
-        messages,
+      const response = await aiProvider.chat(messages, {
         temperature: 0.7,
         max_tokens: 500
       });
 
-      return response.choices[0].message.content;
+      return aiProvider.getContent(response);
     } catch (error) {
-      logger.error('OpenAI API error:', error);
-
-      // Handle specific error types
-      if (error.status === 429 || error.code === 'insufficient_quota' || (error.error && error.error.code === 'insufficient_quota')) {
-        const err = new Error('⚠️ OpenAI API Quota Exceeded\n\nYour Azure OpenAI or OpenAI API key has run out of credits.\n\nPlease:\n1. Check your Azure OpenAI quota at portal.azure.com\n2. Or add credits to your OpenAI account at platform.openai.com\n3. Update your API keys in the .env file if needed\n\nThen try again.');
-        err.status = 429;
-        throw err;
-      }
-
-      if (error.status === 401 || error.code === 'invalid_api_key') {
-        const err = new Error('⚠️ API Key Invalid\n\nPlease check your Azure OpenAI or OpenAI API key in the .env file.');
-        err.status = 401;
-        throw err;
-      }
-
-      // Include the full error message for debugging
-      const err = new Error(`Failed to generate answer: ${error.message || error.toString() || 'Unknown error'}`);
-      err.status = error.status || 500;
-      throw err;
+      logger.error('Chat service transcript error:', error);
+      throw error;
     }
   }
 
-  async streamAnswer(question, resumeContext, onChunk) {
+  async streamAnswer(question, resumeContext, conversationHistory = [], language = 'en', onChunk) {
     try {
+      // Language mapping for natural language names
+      const languageNames = {
+        'en': 'English',
+        'es': 'Spanish',
+        'fr': 'French',
+        'de': 'German',
+        'zh': 'Chinese',
+        'ja': 'Japanese',
+        'ko': 'Korean',
+        'hi': 'Hindi',
+        'pt': 'Portuguese',
+        'ar': 'Arabic',
+        'ru': 'Russian'
+      };
+
+      const targetLanguage = languageNames[language] || 'English';
+
       const messages = [
         {
           role: 'system',
@@ -194,17 +150,19 @@ class ChatService {
           content: `Candidate's Resume Context:\n${resumeContext || 'No resume uploaded yet'}`
         },
         {
+          role: 'system',
+          content: `IMPORTANT: Respond in ${targetLanguage}. The candidate needs the answer in ${targetLanguage}.`
+        },
+        ...conversationHistory,
+        {
           role: 'user',
-          content: `Interview Question: ${question}\n\nProvide a natural, first-person answer.`
+          content: `Interview Question: ${question}\n\nProvide a natural, first-person answer as if you are the candidate speaking, in ${targetLanguage}.`
         }
       ];
 
-      const stream = await this.openai.chat.completions.create({
-        model: process.env.AZURE_OPENAI_DEPLOYMENT,
-        messages,
+      const stream = await aiProvider.chatStream(messages, {
         temperature: 0.7,
-        max_tokens: 500,
-        stream: true
+        max_tokens: 500
       });
 
       for await (const chunk of stream) {
@@ -214,18 +172,8 @@ class ChatService {
         }
       }
     } catch (error) {
-      logger.error('OpenAI streaming error:', error);
-
-      // Handle specific error types
-      if (error.status === 429 || error.code === 'insufficient_quota' || (error.error && error.error.code === 'insufficient_quota')) {
-        const err = new Error('⚠️ OpenAI API Quota Exceeded - Please add credits and try again.');
-        err.status = 429;
-        throw err;
-      }
-
-      const err = new Error(`Failed to stream answer: ${error.message || error.toString() || 'Unknown error'}`);
-      err.status = error.status || 500;
-      throw err;
+      logger.error('Chat service streaming error:', error);
+      throw error;
     }
   }
 }

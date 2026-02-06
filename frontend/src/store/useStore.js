@@ -26,15 +26,6 @@ const useStore = create((set, get) => ({
     })),
   clearMessages: () => set({ messages: [] }),
 
-  // LiveKit state
-  livekitRoom: null,
-  livekitToken: null,
-  isConnected: false,
-
-  setLiveKitRoom: (room, token) =>
-    set({ livekitRoom: room, livekitToken: token }),
-  setIsConnected: (connected) => set({ isConnected: connected }),
-
   // Visibility mode
   visibilityMode: 'normal',
   setVisibilityMode: (mode) => set({ visibilityMode: mode }),

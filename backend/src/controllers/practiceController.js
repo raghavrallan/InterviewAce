@@ -1,4 +1,4 @@
-const chatService = require('../services/chatService');
+const aiProvider = require('../services/aiProvider');
 const logger = require('../utils/logger');
 
 const QUESTION_PROMPTS = {
@@ -48,18 +48,18 @@ Respond with a JSON object containing:
   "framework": "STAR" or "PROBLEM_SOLUTION" or "TECHNICAL"
 }`;
 
-    const response = await chatService.openai.chat.completions.create({
-      model: process.env.AZURE_OPENAI_DEPLOYMENT,
-      messages: [
-        {
-          role: 'system',
-          content: 'You are an expert interview question generator. Generate high-quality, relevant interview questions tailored to the candidate\'s background.'
-        },
-        {
-          role: 'user',
-          content: fullPrompt
-        }
-      ],
+    const messages = [
+      {
+        role: 'system',
+        content: 'You are an expert interview question generator. Generate high-quality, relevant interview questions tailored to the candidate\'s background.'
+      },
+      {
+        role: 'user',
+        content: fullPrompt
+      }
+    ];
+
+    const response = await aiProvider.chat(messages, {
       temperature: 0.8,
       max_tokens: 500
     });
@@ -67,11 +67,11 @@ Respond with a JSON object containing:
     let result;
     try {
       // Try to parse JSON response
-      result = JSON.parse(response.choices[0].message.content);
+      result = JSON.parse(aiProvider.getContent(response));
     } catch (parseError) {
       // Fallback if response is not JSON
       result = {
-        question: response.choices[0].message.content.trim(),
+        question: aiProvider.getContent(response).trim(),
         hints: [],
         framework: questionType === 'technical' ? 'TECHNICAL' : 'STAR'
       };
@@ -137,23 +137,23 @@ Provide comprehensive feedback covering:
 
 Format your response in markdown with clear sections.`;
 
-    const response = await chatService.openai.chat.completions.create({
-      model: process.env.AZURE_OPENAI_DEPLOYMENT,
-      messages: [
-        {
-          role: 'system',
-          content: 'You are an expert interview coach providing constructive feedback to help candidates improve their interview performance.'
-        },
-        {
-          role: 'user',
-          content: evaluationPrompt
-        }
-      ],
+    const messages = [
+      {
+        role: 'system',
+        content: 'You are an expert interview coach providing constructive feedback to help candidates improve their interview performance.'
+      },
+      {
+        role: 'user',
+        content: evaluationPrompt
+      }
+    ];
+
+    const response = await aiProvider.chat(messages, {
       temperature: 0.7,
       max_tokens: 1000
     });
 
-    const feedback = response.choices[0].message.content;
+    const feedback = aiProvider.getContent(response);
 
     res.json({
       success: true,
