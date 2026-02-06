@@ -29,7 +29,7 @@ function createWindow() {
     frame: false,
     transparent: false,  // Start non-transparent for visibility
     alwaysOnTop: true,
-    skipTaskbar: false,  // Show in taskbar initially
+    skipTaskbar: true,   // Hidden from taskbar by default
     resizable: false,
     movable: true,
     show: true,
@@ -50,6 +50,12 @@ function createWindow() {
   mainWindow.webContents.on('did-finish-load', () => {
     mainWindow.show();
     mainWindow.focus();
+
+    // Enable stealth features by default (invisible in screen share, hidden from taskbar)
+    setTimeout(() => {
+      enableStealthFeatures();
+    }, 500);
+
     console.log('Window loaded and shown');
   });
 
