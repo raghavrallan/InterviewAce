@@ -57,6 +57,18 @@ const useStore = create((set, get) => ({
   companyTips: null,
   setSelectedCompany: (company) => set({ selectedCompany: company }),
   setCompanyTips: (tips) => set({ companyTips: tips }),
+
+  // STT provider: 'deepgram' (real-time WebSocket) or 'whisper' (3s chunk upload)
+  sttProvider: 'deepgram',
+  setSttProvider: (provider) => set({ sttProvider: provider }),
+
+  // TTS settings
+  ttsEnabled: false,
+  ttsVoice: null,
+  ttsRate: 1.0,
+  setTtsEnabled: (enabled) => set({ ttsEnabled: enabled }),
+  setTtsVoice: (voice) => set({ ttsVoice: voice }),
+  setTtsRate: (rate) => set({ ttsRate: rate }),
 }));
 
 export default useStore;

@@ -653,15 +653,7 @@
       0 0 40px rgba(76, 175, 80, 0.15);
   }
 
-  .drag-handle {
-    -webkit-app-region: drag;
-    cursor: default !important;
-  }
-
-  .no-drag {
-    -webkit-app-region: no-drag;
-    cursor: default !important;
-  }
+  /* Drag is handled entirely via JS (no -webkit-app-region used) */
 
   /* =============================================================================
      VISIBILITY MODES

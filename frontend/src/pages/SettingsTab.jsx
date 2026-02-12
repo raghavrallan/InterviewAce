@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import {
   Globe, Video, Mic, Headphones, Info, Eye, EyeOff, Ghost, Layers,
-  Keyboard, Building2, Briefcase, CheckCircle, XCircle, ChevronDown
+  Keyboard, Building2, Briefcase, CheckCircle, XCircle, ChevronDown,
+  Volume2, Zap
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
@@ -9,6 +10,7 @@ import useStore from '../store/useStore';
 import toast from 'react-hot-toast';
 import { SUPPORTED_LANGUAGES } from '../i18n';
 import PlatformDetectionService from '../services/PlatformDetectionService';
+import SpeechService from '../services/SpeechService';
 
 function AccordionSection({ title, icon: Icon, iconColor = 'text-purple-300', children, defaultOpen = false }) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
@@ -46,9 +48,15 @@ function AccordionSection({ title, icon: Icon, iconColor = 'text-purple-300', ch
 
 function SettingsTab() {
   const { t, i18n } = useTranslation();
-  const { visibilityMode, audioInputDevice, audioOutputDevice, setAudioInputDevice, setAudioOutputDevice, selectedCompany, setSelectedCompany, setCompanyTips } = useStore();
+  const {
+    visibilityMode, audioInputDevice, audioOutputDevice, setAudioInputDevice, setAudioOutputDevice,
+    selectedCompany, setSelectedCompany, setCompanyTips,
+    sttProvider, setSttProvider,
+    ttsEnabled, setTtsEnabled, ttsVoice, setTtsVoice, ttsRate, setTtsRate
+  } = useStore();
   const [audioInputDevices, setAudioInputDevices] = useState([]);
   const [audioOutputDevices, setAudioOutputDevices] = useState([]);
+  const [availableVoices, setAvailableVoices] = useState([]);
   const [currentLanguage, setCurrentLanguage] = useState(i18n.language);
   const [detectedPlatform, setDetectedPlatform] = useState(null);
   const [isInMeeting, setIsInMeeting] = useState(false);
@@ -74,6 +82,17 @@ function SettingsTab() {
     getDevices();
     navigator.mediaDevices.addEventListener('devicechange', getDevices);
     return () => navigator.mediaDevices.removeEventListener('devicechange', getDevices);
+  }, []);
+
+  // Load TTS voices
+  useEffect(() => {
+    if (SpeechService.isSupported()) {
+      const voices = SpeechService.getVoices();
+      if (voices.length > 0) {
+        setAvailableVoices(voices);
+      }
+      SpeechService.onVoicesLoaded((v) => setAvailableVoices(v));
+    }
   }, []);
 
   const handleInputDeviceChange = (e) => {
@@ -353,6 +372,125 @@ function SettingsTab() {
             <p className="text-white/20 text-[10px]">
               {audioInputDevices.length} in / {audioOutputDevices.length} out detected
             </p>
+          </div>
+        </AccordionSection>
+
+        {/* STT Provider */}
+        <AccordionSection title="Speech Recognition" icon={Zap} iconColor="text-blue-300" defaultOpen={false}>
+          <div className="space-y-2">
+            <div className="space-y-1.5">
+              {[
+                { id: 'deepgram', label: 'Deepgram (Real-time)', desc: 'WebSocket streaming, ~250ms latency', badge: 'Free tier' },
+                { id: 'whisper', label: 'Whisper API (Chunks)', desc: '3s chunks, requires OpenAI/Azure key', badge: 'Fallback' },
+              ].map((provider) => (
+                <button
+                  key={provider.id}
+                  onClick={() => {
+                    setSttProvider(provider.id);
+                    toast.success(`STT: ${provider.label}`);
+                  }}
+                  className={`w-full flex items-center justify-between p-2 rounded-lg transition-colors text-left ${
+                    sttProvider === provider.id
+                      ? 'bg-blue-500/10 border border-blue-400/20'
+                      : 'bg-white/[0.02] border border-transparent hover:bg-white/[0.04]'
+                  }`}
+                >
+                  <div>
+                    <p className={`text-[11px] font-medium ${sttProvider === provider.id ? 'text-white' : 'text-white/60'}`}>
+                      {provider.label}
+                    </p>
+                    <p className="text-white/25 text-[10px]">{provider.desc}</p>
+                  </div>
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded ${
+                    sttProvider === provider.id ? 'bg-blue-500/20 text-blue-300' : 'bg-white/5 text-white/30'
+                  }`}>
+                    {provider.badge}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <p className="text-white/20 text-[10px]">
+              Deepgram needs DEEPGRAM_API_KEY in backend .env (free at deepgram.com)
+            </p>
+          </div>
+        </AccordionSection>
+
+        {/* TTS / Speech Output */}
+        <AccordionSection title="Speech Output" icon={Volume2} iconColor="text-orange-300" defaultOpen={false}>
+          <div className="space-y-2">
+            {/* Enable/Disable */}
+            <div className="flex items-center justify-between p-2 bg-white/[0.03] rounded-lg">
+              <span className="text-white/60 text-[11px]">Text-to-Speech</span>
+              <button
+                onClick={() => {
+                  setTtsEnabled(!ttsEnabled);
+                  toast.success(ttsEnabled ? 'TTS disabled' : 'TTS enabled');
+                }}
+                className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
+                  ttsEnabled
+                    ? 'bg-green-500/20 text-green-300 border border-green-400/30'
+                    : 'bg-white/5 text-white/40 border border-white/10'
+                }`}
+              >
+                {ttsEnabled ? 'On' : 'Off'}
+              </button>
+            </div>
+
+            {/* Voice Selection */}
+            {SpeechService.isSupported() && (
+              <div>
+                <label className="text-white/40 text-[10px] mb-1 block">Voice</label>
+                <select
+                  value={ttsVoice || ''}
+                  onChange={(e) => {
+                    setTtsVoice(e.target.value || null);
+                    // Preview the voice
+                    if (e.target.value) {
+                      SpeechService.speak('Hello, I am your interview assistant.', {
+                        voice: e.target.value,
+                        rate: ttsRate,
+                      });
+                    }
+                  }}
+                  className="w-full input-sm bg-white/[0.03]"
+                >
+                  <option value="">System Default</option>
+                  {availableVoices.map((v, i) => (
+                    <option key={i} value={v.name}>
+                      {v.name} ({v.lang})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Speech Rate */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-white/40 text-[10px]">Speed</label>
+                <span className="text-white/40 text-[10px] font-mono">{ttsRate.toFixed(1)}x</span>
+              </div>
+              <input
+                type="range"
+                min="0.5"
+                max="2.0"
+                step="0.1"
+                value={ttsRate}
+                onChange={(e) => setTtsRate(parseFloat(e.target.value))}
+                className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-purple-500"
+              />
+              <div className="flex justify-between text-white/20 text-[9px] mt-0.5">
+                <span>0.5x</span>
+                <span>1.0x</span>
+                <span>2.0x</span>
+              </div>
+            </div>
+
+            {!SpeechService.isSupported() && (
+              <p className="text-red-300/60 text-[10px]">
+                Speech synthesis not supported in this browser
+              </p>
+            )}
           </div>
         </AccordionSection>
 

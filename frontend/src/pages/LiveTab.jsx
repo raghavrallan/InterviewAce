@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
-import { Play, Square, Send, Loader, ChevronDown } from 'lucide-react';
+import { Play, Square, Send, Loader, ChevronDown, Volume2, VolumeX } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import useStore from '../store/useStore';
 import toast from 'react-hot-toast';
+import SpeechService from '../services/SpeechService';
 
 const markdownComponents = {
   code({ node, inline, className, children, ...props }) {
@@ -36,7 +37,10 @@ function LiveTab() {
     resumeContext,
     isRecording,
     setIsRecording,
-    setSessionStartTime
+    setSessionStartTime,
+    ttsEnabled,
+    ttsVoice,
+    ttsRate
   } = useStore();
 
   const [input, setInput] = useState('');
@@ -44,6 +48,24 @@ function LiveTab() {
   const [streamingText, setStreamingText] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [selectedTranscript, setSelectedTranscript] = useState(null);
+  const [speakingMessageId, setSpeakingMessageId] = useState(null);
+
+  const handleSpeak = (message) => {
+    if (speakingMessageId === message.id) {
+      // Stop speaking
+      SpeechService.stop();
+      setSpeakingMessageId(null);
+    } else {
+      // Speak this message
+      SpeechService.speak(message.text, {
+        voice: ttsVoice,
+        rate: ttsRate,
+        onStart: () => setSpeakingMessageId(message.id),
+        onEnd: () => setSpeakingMessageId(null),
+        onError: () => setSpeakingMessageId(null),
+      });
+    }
+  };
 
   const transcriptScrollRef = useRef(null);
   const answerScrollRef = useRef(null);
@@ -363,12 +385,31 @@ function LiveTab() {
                     >
                       {message.text}
                     </ReactMarkdown>
-                    <span className="text-[9px] opacity-40 mt-1 block">
-                      {new Date(message.timestamp).toLocaleTimeString([], {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </span>
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="text-[9px] opacity-40">
+                        {new Date(message.timestamp).toLocaleTimeString([], {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </span>
+                      {message.type === 'assistant' && SpeechService.isSupported() && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleSpeak(message); }}
+                          className={`p-0.5 rounded transition-colors ${
+                            speakingMessageId === message.id
+                              ? 'text-purple-300 bg-purple-500/20'
+                              : 'text-white/20 hover:text-white/50'
+                          }`}
+                          title={speakingMessageId === message.id ? 'Stop speaking' : 'Read aloud'}
+                        >
+                          {speakingMessageId === message.id ? (
+                            <VolumeX className="w-3 h-3" />
+                          ) : (
+                            <Volume2 className="w-3 h-3" />
+                          )}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </motion.div>
               ))}

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, globalShortcut, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, globalShortcut, screen, session } = require('electron');
 const path = require('path');
 
 // Fix for Windows transparent window rendering
@@ -174,6 +174,22 @@ function registerShortcuts() {
 }
 
 app.whenReady().then(() => {
+  // Grant microphone (and camera) permissions automatically for getUserMedia
+  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+    const allowedPermissions = ['media', 'audioCapture', 'microphone'];
+    if (allowedPermissions.includes(permission)) {
+      console.log(`Permission granted: ${permission}`);
+      callback(true);
+    } else {
+      callback(false);
+    }
+  });
+
+  session.defaultSession.setPermissionCheckHandler((webContents, permission) => {
+    const allowedPermissions = ['media', 'audioCapture', 'microphone'];
+    return allowedPermissions.includes(permission);
+  });
+
   // Small delay to ensure GPU is ready
   setTimeout(() => {
     createWindow();

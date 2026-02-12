@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { GripVertical, Mic, MicOff, Eye, EyeOff, Ghost, Layers, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import useStore from '../store/useStore';
@@ -42,6 +42,35 @@ function CommandBar() {
 
   const [elapsed, setElapsed] = useState('00:00');
   const intervalRef = useRef(null);
+  const isDraggingRef = useRef(false);
+  const dragStartRef = useRef({ x: 0, y: 0 });
+
+  // JS-based window drag (avoids Chromium bug with -webkit-app-region on transparent windows)
+  const handleDragMouseDown = useCallback((e) => {
+    if (!window.electronAPI) return;
+    isDraggingRef.current = true;
+    dragStartRef.current = { x: e.screenX, y: e.screenY };
+    
+    const handleMouseMove = async (moveEvent) => {
+      if (!isDraggingRef.current) return;
+      const dx = moveEvent.screenX - dragStartRef.current.x;
+      const dy = moveEvent.screenY - dragStartRef.current.y;
+      dragStartRef.current = { x: moveEvent.screenX, y: moveEvent.screenY };
+      try {
+        const pos = await window.electronAPI.getWindowPosition();
+        window.electronAPI.setWindowPosition(pos.x + dx, pos.y + dy);
+      } catch (_) { /* ignore */ }
+    };
+
+    const handleMouseUp = () => {
+      isDraggingRef.current = false;
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  }, []);
 
   // Listen for Electron visibility mode changes
   useEffect(() => {
@@ -104,16 +133,18 @@ function CommandBar() {
   const ModeIcon = MODE_ICONS[visibilityMode] || Eye;
 
   return (
-    <div className="command-bar drag-handle">
-      {/* Drag Handle */}
-      <div className="flex items-center drag-handle">
+    <div className="command-bar">
+      {/* Drag Handle + Logo (JS-based drag area) */}
+      <div
+        className="flex items-center gap-2 select-none"
+        onMouseDown={handleDragMouseDown}
+        style={{ cursor: 'grab' }}
+      >
         <GripVertical className="w-3.5 h-3.5 text-white/20" />
-      </div>
-
-      {/* Logo */}
-      <div className="flex items-center space-x-1 drag-handle">
-        <div className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-purple-500 to-blue-500"></div>
-        <span className="text-white/50 text-[10px] font-bold tracking-widest">ACE</span>
+        <div className="flex items-center space-x-1">
+          <div className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-purple-500 to-blue-500"></div>
+          <span className="text-white/50 text-[10px] font-bold tracking-widest">ACE</span>
+        </div>
       </div>
 
       {/* Separator */}
@@ -122,7 +153,7 @@ function CommandBar() {
       {/* Audio Toggle */}
       <button
         onClick={handleAudioToggle}
-        className={`command-bar-btn no-drag ${isRecording ? 'command-bar-btn-active' : ''}`}
+        className={`command-bar-btn ${isRecording ? 'command-bar-btn-active' : ''}`}
         title={isRecording ? 'Stop listening' : 'Start listening'}
       >
         {isRecording ? (
@@ -133,7 +164,7 @@ function CommandBar() {
       </button>
 
       {/* Session Timer Pill */}
-      <div className={`command-bar-timer no-drag ${isRecording ? 'active' : ''}`}>
+      <div className={`command-bar-timer ${isRecording ? 'active' : ''}`}>
         {isRecording && <span className="rec-dot-sm"></span>}
         <span>{elapsed}</span>
       </div>
@@ -142,7 +173,7 @@ function CommandBar() {
       <div className="w-px h-4 bg-white/10"></div>
 
       {/* Nav Dots */}
-      <div className="flex items-center space-x-1.5 no-drag">
+      <div className="flex items-center space-x-1.5">
         {NAV_ITEMS.map((item) => (
           <motion.button
             key={item.id}
@@ -169,7 +200,7 @@ function CommandBar() {
       {/* Mode Toggle */}
       <button
         onClick={handleModeClick}
-        className={`command-bar-btn no-drag ${MODE_COLORS[visibilityMode]}`}
+        className={`command-bar-btn ${MODE_COLORS[visibilityMode]}`}
         title={`${MODE_LABELS[visibilityMode]} Mode`}
       >
         <ModeIcon className="w-3.5 h-3.5" />
@@ -178,7 +209,7 @@ function CommandBar() {
       {/* Close */}
       <button
         onClick={handleClose}
-        className="command-bar-btn no-drag hover:text-red-400"
+        className="command-bar-btn hover:text-red-400"
         title="Close"
       >
         <X className="w-3.5 h-3.5 text-white/30" />
