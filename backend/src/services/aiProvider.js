@@ -18,11 +18,24 @@ class AIProvider {
   }
 
   /**
-   * Get the current provider type
+   * Get the current provider type (auto-detects from env vars if AI_PROVIDER not set)
    */
   get provider() {
     if (!this._provider) {
-      this._provider = (process.env.AI_PROVIDER || 'openai').toLowerCase();
+      const explicit = process.env.AI_PROVIDER;
+      if (explicit) {
+        this._provider = explicit.toLowerCase();
+      } else if (process.env.AZURE_OPENAI_ENDPOINT && process.env.AZURE_OPENAI_API_KEY) {
+        // Auto-detect Azure if Azure keys are present
+        this._provider = 'azure';
+        logger.info('Auto-detected AI provider: azure (AZURE_OPENAI_* env vars found)');
+      } else if (process.env.OPENAI_API_KEY) {
+        this._provider = 'openai';
+        logger.info('Auto-detected AI provider: openai (OPENAI_API_KEY found)');
+      } else {
+        // Default to azure if any azure vars exist, otherwise openai
+        this._provider = process.env.AZURE_OPENAI_ENDPOINT ? 'azure' : 'openai';
+      }
     }
     return this._provider;
   }

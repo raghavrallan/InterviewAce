@@ -20,8 +20,59 @@ const upload = multer({
 });
 
 /**
+ * Get the Whisper API URL and auth headers based on configured provider.
+ * Supports: Azure OpenAI Whisper, standard OpenAI Whisper.
+ */
+function getWhisperConfig() {
+  const provider = (process.env.AI_PROVIDER || '').toLowerCase();
+  const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT;
+  const azureKey = process.env.AZURE_OPENAI_API_KEY;
+  const azureWhisperDeployment = process.env.AZURE_OPENAI_WHISPER_DEPLOYMENT;
+  const azureApiVersion = process.env.AZURE_OPENAI_API_VERSION || '2025-01-01-preview';
+  const openaiKey = process.env.OPENAI_API_KEY;
+
+  // Azure Whisper: if we have an Azure whisper deployment configured
+  if ((provider === 'azure' || azureEndpoint) && azureWhisperDeployment && azureKey) {
+    const endpoint = azureEndpoint.replace(/\/$/, '');
+    return {
+      url: `${endpoint}/openai/deployments/${azureWhisperDeployment}/audio/transcriptions?api-version=${azureApiVersion}`,
+      headers: { 'api-key': azureKey },
+      provider: 'azure-whisper'
+    };
+  }
+
+  // Standard OpenAI Whisper: if OPENAI_API_KEY is available
+  if (openaiKey) {
+    return {
+      url: 'https://api.openai.com/v1/audio/transcriptions',
+      headers: { 'Authorization': `Bearer ${openaiKey}` },
+      provider: 'openai-whisper'
+    };
+  }
+
+  // Fallback: try using Azure key with OpenAI endpoint (won't work but gives clear error)
+  if (azureKey && !azureWhisperDeployment) {
+    return {
+      url: null,
+      headers: {},
+      provider: 'none',
+      error: 'Whisper transcription requires either OPENAI_API_KEY or AZURE_OPENAI_WHISPER_DEPLOYMENT. ' +
+             'If using Azure, deploy a Whisper model and set AZURE_OPENAI_WHISPER_DEPLOYMENT in .env. ' +
+             'Otherwise, add OPENAI_API_KEY for standard OpenAI Whisper.'
+    };
+  }
+
+  return {
+    url: null,
+    headers: {},
+    provider: 'none',
+    error: 'No API key configured for transcription. Set OPENAI_API_KEY or configure Azure Whisper deployment.'
+  };
+}
+
+/**
  * POST /api/transcription/transcribe
- * Transcribe audio using OpenAI Whisper API
+ * Transcribe audio using Whisper API (OpenAI or Azure)
  */
 router.post('/transcribe', upload.single('audio'), async (req, res) => {
   let filePath = null;
@@ -31,10 +82,18 @@ router.post('/transcribe', upload.single('audio'), async (req, res) => {
       return res.status(400).json({ error: 'No audio file provided' });
     }
 
+    const whisperConfig = getWhisperConfig();
+    if (!whisperConfig.url) {
+      return res.status(503).json({
+        error: 'Transcription service not configured',
+        details: whisperConfig.error
+      });
+    }
+
     filePath = req.file.path;
     const language = req.body.language || 'en';
 
-    console.log('🎙️ Transcribing audio file:', {
+    console.log(`🎙️ Transcribing audio (${whisperConfig.provider}):`, {
       originalName: req.file.originalname,
       size: req.file.size,
       language
@@ -50,14 +109,14 @@ router.post('/transcribe', upload.single('audio'), async (req, res) => {
     formData.append('language', language);
     formData.append('response_format', 'json');
 
-    // Call OpenAI Whisper API
+    // Call Whisper API
     const response = await axios.post(
-      'https://api.openai.com/v1/audio/transcriptions',
+      whisperConfig.url,
       formData,
       {
         headers: {
           ...formData.getHeaders(),
-          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
+          ...whisperConfig.headers
         },
         maxContentLength: Infinity,
         maxBodyLength: Infinity
@@ -107,6 +166,14 @@ router.post('/stream', upload.single('audio'), async (req, res) => {
       return res.status(400).json({ error: 'No audio chunk provided' });
     }
 
+    const whisperConfig = getWhisperConfig();
+    if (!whisperConfig.url) {
+      return res.status(503).json({
+        error: 'Transcription service not configured',
+        details: whisperConfig.error
+      });
+    }
+
     filePath = req.file.path;
     const language = req.body.language || 'en';
 
@@ -122,12 +189,12 @@ router.post('/stream', upload.single('audio'), async (req, res) => {
 
     // Call Whisper API
     const response = await axios.post(
-      'https://api.openai.com/v1/audio/transcriptions',
+      whisperConfig.url,
       formData,
       {
         headers: {
           ...formData.getHeaders(),
-          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
+          ...whisperConfig.headers
         }
       }
     );

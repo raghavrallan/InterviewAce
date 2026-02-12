@@ -20,20 +20,20 @@ const VISIBILITY_MODES = {
 function createWindow() {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
 
-  // Start with VISIBLE window, enable stealth features later via shortcut
+  // Floating widget window - transparent background, pill-shaped content
   mainWindow = new BrowserWindow({
-    width: 420,
-    height: 680,
-    x: width - 450,
+    width: 400,
+    height: 600,
+    x: width - 430,
     y: 50,
     frame: false,
-    transparent: false,  // Start non-transparent for visibility
+    transparent: true,
     alwaysOnTop: true,
-    skipTaskbar: true,   // Hidden from taskbar by default
+    skipTaskbar: true,
     resizable: false,
     movable: true,
     show: true,
-    backgroundColor: '#1a1a2e',
+    hasShadow: false,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -42,7 +42,7 @@ function createWindow() {
   });
 
   const startUrl = isDev
-    ? 'http://localhost:5173'
+    ? (process.env.ELECTRON_START_URL || 'http://localhost:5173')
     : `file://${path.join(__dirname, '../frontend/dist/index.html')}`;
 
   mainWindow.loadURL(startUrl);

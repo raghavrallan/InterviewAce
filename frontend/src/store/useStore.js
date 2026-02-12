@@ -31,12 +31,16 @@ const useStore = create((set, get) => ({
   setVisibilityMode: (mode) => set({ visibilityMode: mode }),
 
   // Active tab
-  activeTab: 'transcript',
+  activeTab: 'live',
   setActiveTab: (tab) => set({ activeTab: tab }),
 
   // Recording state (global - persists across tabs)
   isRecording: false,
   setIsRecording: (recording) => set({ isRecording: recording }),
+
+  // Session timer
+  sessionStartTime: null,
+  setSessionStartTime: (time) => set({ sessionStartTime: time }),
 
   // UI state
   isLoading: false,
