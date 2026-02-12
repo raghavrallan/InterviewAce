@@ -63,23 +63,37 @@ router.post('/answer-from-transcript', async (req, res, next) => {
 });
 
 // Stream answer (for real-time response)
-router.post('/stream', async (req, res, next) => {
+router.post('/stream', async (req, res) => {
+  const { question, resumeContext, conversationHistory, language } = req.body;
+
+  if (!question) {
+    return res.status(400).json({ error: 'Question is required' });
+  }
+
+  // Set SSE headers
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders();
+
   try {
-    const { question, resumeContext } = req.body;
-
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-
-    await chatService.streamAnswer(question, resumeContext, (chunk) => {
-      res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
-    });
+    await chatService.streamAnswer(
+      question,
+      resumeContext,
+      conversationHistory || [],
+      language || 'en',
+      (chunk) => {
+        res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
+      }
+    );
 
     res.write('data: [DONE]\n\n');
     res.end();
   } catch (error) {
     logger.error('Chat stream error:', error);
-    next(error);
+    res.write(`data: ${JSON.stringify({ error: error.message || 'Streaming failed' })}\n\n`);
+    res.end();
   }
 });
 

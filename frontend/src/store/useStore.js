@@ -26,26 +26,21 @@ const useStore = create((set, get) => ({
     })),
   clearMessages: () => set({ messages: [] }),
 
-  // LiveKit state
-  livekitRoom: null,
-  livekitToken: null,
-  isConnected: false,
-
-  setLiveKitRoom: (room, token) =>
-    set({ livekitRoom: room, livekitToken: token }),
-  setIsConnected: (connected) => set({ isConnected: connected }),
-
   // Visibility mode
   visibilityMode: 'normal',
   setVisibilityMode: (mode) => set({ visibilityMode: mode }),
 
   // Active tab
-  activeTab: 'transcript',
+  activeTab: 'live',
   setActiveTab: (tab) => set({ activeTab: tab }),
 
   // Recording state (global - persists across tabs)
   isRecording: false,
   setIsRecording: (recording) => set({ isRecording: recording }),
+
+  // Session timer
+  sessionStartTime: null,
+  setSessionStartTime: (time) => set({ sessionStartTime: time }),
 
   // UI state
   isLoading: false,

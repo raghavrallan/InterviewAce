@@ -7,6 +7,7 @@ const practiceRoutes = require('./practiceRoutes');
 const jobDescriptionRoutes = require('./jobDescription');
 const companyRoutes = require('./company');
 const transcriptionRoutes = require('./transcription');
+const statusRoutes = require('./status');
 
 router.use('/resume', resumeRoutes);
 router.use('/chat', chatRoutes);
@@ -15,5 +16,6 @@ router.use('/practice', practiceRoutes);
 router.use('/job-description', jobDescriptionRoutes);
 router.use('/company', companyRoutes);
 router.use('/transcription', transcriptionRoutes);
+router.use('/status', statusRoutes);
 
 module.exports = router;
