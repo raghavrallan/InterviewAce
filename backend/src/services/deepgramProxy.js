@@ -4,6 +4,10 @@
  * Relays audio from frontend WebSocket clients to Deepgram's
  * real-time streaming API, and sends transcription results back.
  * Keeps DEEPGRAM_API_KEY secure on the backend.
+ * 
+ * Supports:
+ * - Diarization mode (default): single stream, Deepgram labels speakers
+ * - Dual-stream mode: separate mic/system connections with explicit speaker labels
  */
 
 const WebSocket = require('ws');
@@ -14,8 +18,10 @@ const DEEPGRAM_WS_URL = 'wss://api.deepgram.com/v1/listen';
 
 /**
  * Build the Deepgram WebSocket URL with query parameters
+ * @param {string} language - Language code
+ * @param {boolean} enableDiarize - Whether to enable speaker diarization
  */
-function buildDeepgramUrl(language = 'en') {
+function buildDeepgramUrl(language = 'en', enableDiarize = false) {
   const params = new URLSearchParams({
     model: 'nova-3',
     language,
@@ -24,14 +30,26 @@ function buildDeepgramUrl(language = 'en') {
     endpointing: '300',
     vad_events: 'true',
     smart_format: 'true',
+    utterances: 'true',
+    filler_words: 'true',
     // Do NOT specify encoding/sample_rate/channels - Deepgram auto-detects from webm container
   });
+
+  if (enableDiarize) {
+    params.set('diarize', 'true');
+  }
+
   return `${DEEPGRAM_WS_URL}?${params.toString()}`;
 }
 
 /**
  * Set up the Deepgram WebSocket proxy on the HTTP server.
  * Listens for upgrade requests on /ws/transcribe
+ * 
+ * Query params:
+ *   language=en        - transcription language
+ *   speaker=me|interviewer - explicit speaker label (dual-stream mode)
+ *                           If omitted, diarization is enabled
  */
 function setupDeepgramProxy(server) {
   const wss = new WebSocket.Server({ noServer: true });
@@ -63,14 +81,18 @@ function setupDeepgramProxy(server) {
       return;
     }
 
-    // Parse language from query string (e.g., /ws/transcribe?language=en)
+    // Parse query params
     const parsedUrl = url.parse(request.url, true);
     const language = parsedUrl.query.language || 'en';
+    const speakerLabel = parsedUrl.query.speaker || null; // 'me', 'interviewer', or null
 
-    logger.info(`New Deepgram STT session - language: ${language}`);
+    // If no explicit speaker label, enable diarization for automatic speaker detection
+    const enableDiarize = !speakerLabel;
+
+    logger.info(`New Deepgram STT session - language: ${language}, speaker: ${speakerLabel || 'diarize'}`);
 
     // Open connection to Deepgram
-    const deepgramUrl = buildDeepgramUrl(language);
+    const deepgramUrl = buildDeepgramUrl(language, enableDiarize);
     let deepgramWs = null;
     let isClosing = false;
 
@@ -96,7 +118,9 @@ function setupDeepgramProxy(server) {
       clientWs.send(JSON.stringify({
         type: 'status',
         message: 'connected',
-        provider: 'deepgram'
+        provider: 'deepgram',
+        speaker: speakerLabel,
+        diarize: enableDiarize,
       }));
     });
 
@@ -106,13 +130,30 @@ function setupDeepgramProxy(server) {
         const response = JSON.parse(data.toString());
 
         if (response.type === 'Results') {
-          const transcript = response.channel?.alternatives?.[0]?.transcript || '';
+          const alt = response.channel?.alternatives?.[0];
+          const transcript = alt?.transcript || '';
           const isFinal = response.is_final || false;
           const speechFinal = response.speech_final || false;
-          const confidence = response.channel?.alternatives?.[0]?.confidence || 0;
+          const confidence = alt?.confidence || 0;
+
+          // Extract speaker from diarization (word-level speaker labels)
+          let speakerId = null;
+          if (enableDiarize && alt?.words?.length > 0) {
+            // Use the most common speaker in the words
+            const speakerCounts = {};
+            for (const word of alt.words) {
+              if (word.speaker !== undefined) {
+                speakerCounts[word.speaker] = (speakerCounts[word.speaker] || 0) + 1;
+              }
+            }
+            const entries = Object.entries(speakerCounts);
+            if (entries.length > 0) {
+              speakerId = parseInt(entries.sort((a, b) => b[1] - a[1])[0][0]);
+            }
+          }
 
           if (transcript.trim()) {
-            clientWs.send(JSON.stringify({
+            const msg = {
               type: 'transcript',
               transcript: transcript.trim(),
               is_final: isFinal,
@@ -120,7 +161,18 @@ function setupDeepgramProxy(server) {
               confidence,
               start: response.start,
               duration: response.duration,
-            }));
+            };
+
+            // Add speaker info
+            if (speakerLabel) {
+              // Dual-stream mode: use the explicit label
+              msg.speaker = speakerLabel;
+            } else if (speakerId !== null) {
+              // Diarization mode: include numeric speaker ID
+              msg.speaker_id = speakerId;
+            }
+
+            clientWs.send(JSON.stringify(msg));
           }
         } else if (response.type === 'SpeechStarted') {
           clientWs.send(JSON.stringify({ type: 'speech_started' }));
@@ -201,7 +253,7 @@ function setupDeepgramProxy(server) {
       } else {
         clearInterval(keepaliveInterval);
       }
-    }, 10000); // Every 10 seconds
+    }, 10000);
 
     // Clean up keepalive on close
     clientWs.on('close', () => clearInterval(keepaliveInterval));

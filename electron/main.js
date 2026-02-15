@@ -1,5 +1,6 @@
-const { app, BrowserWindow, ipcMain, globalShortcut, screen, session } = require('electron');
+const { app, BrowserWindow, ipcMain, globalShortcut, screen, session, desktopCapturer } = require('electron');
 const path = require('path');
+const { execSync } = require('child_process');
 
 // Fix for Windows transparent window rendering
 app.disableHardwareAcceleration();
@@ -57,6 +58,9 @@ function createWindow() {
     }, 500);
 
     console.log('Window loaded and shown');
+
+    // Start meeting detection after window loads
+    startMeetingDetection();
   });
 
   if (isDev) {
@@ -174,9 +178,9 @@ function registerShortcuts() {
 }
 
 app.whenReady().then(() => {
-  // Grant microphone (and camera) permissions automatically for getUserMedia
+  // Grant media permissions automatically (microphone, screen, display capture)
   session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
-    const allowedPermissions = ['media', 'audioCapture', 'microphone'];
+    const allowedPermissions = ['media', 'audioCapture', 'microphone', 'screen', 'display-capture', 'mediaKeySystem'];
     if (allowedPermissions.includes(permission)) {
       console.log(`Permission granted: ${permission}`);
       callback(true);
@@ -186,8 +190,22 @@ app.whenReady().then(() => {
   });
 
   session.defaultSession.setPermissionCheckHandler((webContents, permission) => {
-    const allowedPermissions = ['media', 'audioCapture', 'microphone'];
+    const allowedPermissions = ['media', 'audioCapture', 'microphone', 'screen', 'display-capture', 'mediaKeySystem'];
     return allowedPermissions.includes(permission);
+  });
+
+  // Auto-handle getDisplayMedia requests for system audio capture (Enhanced mode)
+  session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
+    desktopCapturer.getSources({ types: ['screen'] }).then((sources) => {
+      if (sources.length > 0) {
+        console.log('Display media: auto-selecting primary screen for system audio');
+        callback({ video: sources[0], audio: 'loopback' });
+      } else {
+        callback({});
+      }
+    }).catch(() => {
+      callback({});
+    });
   });
 
   // Small delay to ensure GPU is ready
@@ -218,13 +236,93 @@ ipcMain.handle('get-window-position', () => {
   return p ? { x: p[0], y: p[1] } : { x: 0, y: 0 };
 });
 ipcMain.handle('set-window-position', (e, { x, y }) => mainWindow?.setPosition(x, y));
-ipcMain.handle('get-open-windows', () => []);
+ipcMain.handle('get-open-windows', () => {
+  try {
+    // Use PowerShell to enumerate windows with titles (no native deps needed)
+    const psCmd = `Get-Process | Where-Object {$_.MainWindowTitle -ne ''} | Select-Object Id, ProcessName, MainWindowTitle | ConvertTo-Json`;
+    const raw = execSync(`powershell -NoProfile -Command "${psCmd}"`, {
+      encoding: 'utf-8',
+      timeout: 5000,
+      windowsHide: true,
+    });
+    const parsed = JSON.parse(raw);
+    const list = Array.isArray(parsed) ? parsed : [parsed];
+    return list.map(p => ({
+      title: p.MainWindowTitle || '',
+      path: p.ProcessName || '',
+      processId: p.Id || 0,
+    })).filter(w => w.title);
+  } catch (err) {
+    console.error('Window enumeration failed:', err.message);
+    return [];
+  }
+});
 ipcMain.handle('auto-adjust-for-platform', (e, platform) => {
   setVisibilityMode(platform.key === 'ZOOM' || platform.key === 'TEAMS' ? 'ghost' : 'stealth');
   return { success: true, mode: visibilityMode };
 });
 ipcMain.handle('enable-stealth', () => { enableStealthFeatures(); return true; });
 ipcMain.handle('disable-stealth', () => { disableStealthFeatures(); return true; });
+
+// Periodic meeting platform detection (every 5 seconds)
+const MEETING_PATTERNS = {
+  ZOOM: /zoom\s*(meeting|workplace|video)?/i,
+  TEAMS: /microsoft\s*teams|teams\s*(meeting|call)/i,
+  MEET: /google\s*meet|meet\.google/i,
+  WEBEX: /webex|cisco\s*webex/i,
+  SKYPE: /skype/i,
+};
+
+let currentMeetingPlatform = null;
+let meetingCheckInterval = null;
+
+function detectMeetingPlatform() {
+  try {
+    const psCmd = `Get-Process | Where-Object {$_.MainWindowTitle -ne ''} | Select-Object MainWindowTitle | ConvertTo-Json`;
+    const raw = execSync(`powershell -NoProfile -Command "${psCmd}"`, {
+      encoding: 'utf-8',
+      timeout: 5000,
+      windowsHide: true,
+    });
+    const parsed = JSON.parse(raw);
+    const list = Array.isArray(parsed) ? parsed : [parsed];
+
+    for (const w of list) {
+      const title = w.MainWindowTitle || '';
+      if (!title) continue;
+
+      for (const [key, pattern] of Object.entries(MEETING_PATTERNS)) {
+        if (pattern.test(title)) {
+          return { key, title, name: key.charAt(0) + key.slice(1).toLowerCase() };
+        }
+      }
+    }
+    return null;
+  } catch (err) {
+    return null;
+  }
+}
+
+function startMeetingDetection() {
+  meetingCheckInterval = setInterval(() => {
+    const platform = detectMeetingPlatform();
+    const changed = (platform?.key || null) !== (currentMeetingPlatform?.key || null);
+
+    if (changed) {
+      currentMeetingPlatform = platform;
+      if (mainWindow && mainWindow.webContents) {
+        mainWindow.webContents.send('meeting-detected', platform);
+      }
+      if (platform) {
+        console.log(`Meeting detected: ${platform.name} (${platform.title})`);
+      } else {
+        console.log('Meeting ended');
+      }
+    }
+  }, 5000);
+}
+
+ipcMain.handle('get-current-meeting', () => currentMeetingPlatform);
 
 console.log('========================================');
 console.log('InterviewAce Started');

@@ -8,9 +8,10 @@ import ResumeTab from './pages/ResumeTab';
 import SettingsTab from './pages/SettingsTab';
 import WhisperSTT from './components/WhisperSTT';
 import DeepgramSTT from './components/DeepgramSTT';
+import DualStreamSTT from './components/DualStreamSTT';
 
 function App() {
-  const { activeTab, isRecording, addTranscript, sttProvider } = useStore();
+  const { activeTab, isRecording, addTranscript, sttProvider, captureMode } = useStore();
 
   // Memoize to prevent re-render loops in STT components
   const handleNewTranscript = useCallback((transcript) => {
@@ -30,6 +31,21 @@ function App() {
       default:
         return <LiveTab />;
     }
+  };
+
+  // Render the appropriate STT component based on provider and capture mode
+  const renderSTT = () => {
+    if (sttProvider === 'whisper') {
+      return <WhisperSTT isRecording={isRecording} onTranscript={handleNewTranscript} />;
+    }
+
+    // Deepgram provider: route based on capture mode
+    if (captureMode === 'dual') {
+      return <DualStreamSTT isRecording={isRecording} onTranscript={handleNewTranscript} />;
+    }
+
+    // Default: diarization mode
+    return <DeepgramSTT isRecording={isRecording} onTranscript={handleNewTranscript} />;
   };
 
   return (
@@ -60,12 +76,8 @@ function App() {
         </div>
       </div>
 
-      {/* Global Speech Recognition - provider switchable in settings */}
-      {sttProvider === 'deepgram' ? (
-        <DeepgramSTT isRecording={isRecording} onTranscript={handleNewTranscript} />
-      ) : (
-        <WhisperSTT isRecording={isRecording} onTranscript={handleNewTranscript} />
-      )}
+      {/* Global Speech Recognition - provider + mode switchable */}
+      {renderSTT()}
     </div>
   );
 }

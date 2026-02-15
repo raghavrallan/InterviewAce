@@ -62,6 +62,22 @@ const useStore = create((set, get) => ({
   sttProvider: 'deepgram',
   setSttProvider: (provider) => set({ sttProvider: provider }),
 
+  // Audio capture mode: 'diarization' (single mic + AI speaker detection) or 'dual' (mic + system audio)
+  captureMode: 'diarization',
+  setCaptureMode: (mode) => set({ captureMode: mode }),
+
+  // Speaker label mapping: { speakerId: label }
+  // In diarization mode: 0 = Interviewer, 1 = Me
+  // Customizable in settings
+  speakerMap: { 0: 'Interviewer', 1: 'Me' },
+  setSpeakerMap: (map) => set({ speakerMap: map }),
+
+  // Meeting platform detection
+  detectedPlatform: null,
+  setDetectedPlatform: (platform) => set({ detectedPlatform: platform }),
+  autoStartOnMeeting: false,
+  setAutoStartOnMeeting: (enabled) => set({ autoStartOnMeeting: enabled }),
+
   // TTS settings
   ttsEnabled: false,
   ttsVoice: null,

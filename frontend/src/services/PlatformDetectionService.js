@@ -21,7 +21,7 @@ class PlatformDetectionService {
     ZOOM: {
       name: 'Zoom',
       patterns: [
-        /zoom meeting/i,
+        /zoom\s*(meeting|workplace|video)?/i,
         /zoom\.us/i,
         /^zoom$/i
       ],
@@ -31,8 +31,8 @@ class PlatformDetectionService {
     TEAMS: {
       name: 'Microsoft Teams',
       patterns: [
-        /microsoft teams/i,
-        /teams meeting/i,
+        /microsoft\s*teams/i,
+        /teams\s*(meeting|call|chat)?/i,
         /^teams$/i
       ],
       color: '#6264A7',
@@ -41,8 +41,9 @@ class PlatformDetectionService {
     MEET: {
       name: 'Google Meet',
       patterns: [
-        /google meet/i,
+        /google\s*meet/i,
         /meet\.google\.com/i,
+        /meet\.google/i,
         /^meet$/i
       ],
       color: '#00897B',
@@ -216,7 +217,17 @@ class PlatformDetectionService {
       // Method 2: Check window titles (Electron only)
       const windowList = await this.getOpenWindows();
 
-      const allDetections = [...browserDetection, ...windowList];
+      // Map raw window objects to platform detections
+      const windowDetections = [];
+      for (const w of windowList) {
+        const title = w.title || '';
+        const platform = this.detectPlatformFromTitle(title);
+        if (platform) {
+          windowDetections.push({ title, platform });
+        }
+      }
+
+      const allDetections = [...browserDetection, ...windowDetections];
 
       if (allDetections.length > 0) {
         const detection = allDetections[0]; // Use first detected platform

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Play, Square, Send, Loader, ChevronDown, Volume2, VolumeX } from 'lucide-react';
+import { Play, Square, Send, Loader, ChevronDown, Volume2, VolumeX, User, Monitor } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -29,6 +29,40 @@ const markdownComponents = {
   }
 };
 
+/**
+ * Group consecutive transcripts from the same speaker into combined entries.
+ * Each group has: speaker, texts[], timestamps, ids
+ */
+function groupTranscripts(transcripts) {
+  if (!transcripts.length) return [];
+
+  const groups = [];
+  let current = null;
+
+  for (const t of transcripts) {
+    const speaker = t.speaker || 'Speaker';
+    if (current && current.speaker === speaker) {
+      // Same speaker - append to current group
+      current.texts.push(t.text);
+      current.lastTimestamp = t.timestamp;
+      current.ids.push(t.id);
+    } else {
+      // New speaker - start new group
+      if (current) groups.push(current);
+      current = {
+        speaker,
+        texts: [t.text],
+        firstTimestamp: t.timestamp,
+        lastTimestamp: t.timestamp,
+        ids: [t.id],
+        id: t.id,
+      };
+    }
+  }
+  if (current) groups.push(current);
+  return groups;
+}
+
 function LiveTab() {
   const {
     transcripts,
@@ -52,11 +86,9 @@ function LiveTab() {
 
   const handleSpeak = (message) => {
     if (speakingMessageId === message.id) {
-      // Stop speaking
       SpeechService.stop();
       setSpeakingMessageId(null);
     } else {
-      // Speak this message
       SpeechService.speak(message.text, {
         voice: ttsVoice,
         rate: ttsRate,
@@ -97,9 +129,10 @@ function LiveTab() {
     toast.success('Stopped', { duration: 1500 });
   };
 
-  // Handle clicking a transcript to generate an answer
-  const handleTranscriptClick = async (transcript) => {
-    setSelectedTranscript(transcript);
+  // Handle clicking a transcript group to generate an answer
+  const handleTranscriptClick = async (group) => {
+    const combinedText = group.texts.join(' ');
+    setSelectedTranscript(group.id);
 
     if (!resumeContext) {
       toast.error('Upload your resume first');
@@ -111,7 +144,7 @@ function LiveTab() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          transcriptText: transcript.text,
+          transcriptText: combinedText,
           resumeContext,
         }),
       });
@@ -122,10 +155,9 @@ function LiveTab() {
         addMessage({
           id: Date.now(),
           type: 'user',
-          text: transcript.text,
+          text: combinedText,
           timestamp: new Date().toISOString(),
         });
-
         addMessage({
           id: Date.now() + 1,
           type: 'assistant',
@@ -179,9 +211,7 @@ function LiveTab() {
         }),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to connect to streaming endpoint');
-      }
+      if (!response.ok) throw new Error('Failed to connect to streaming endpoint');
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
@@ -200,20 +230,12 @@ function LiveTab() {
           if (line.startsWith('data: ')) {
             const data = line.slice(6);
             if (data === '[DONE]') continue;
-
             try {
               const parsed = JSON.parse(data);
-              if (parsed.chunk) {
-                fullText += parsed.chunk;
-                setStreamingText(fullText);
-              }
-              if (parsed.error) {
-                throw new Error(parsed.error);
-              }
+              if (parsed.chunk) { fullText += parsed.chunk; setStreamingText(fullText); }
+              if (parsed.error) throw new Error(parsed.error);
             } catch (e) {
-              if (e.message && !e.message.includes('JSON')) {
-                throw e;
-              }
+              if (e.message && !e.message.includes('JSON')) throw e;
             }
           }
         }
@@ -230,12 +252,7 @@ function LiveTab() {
     } catch (error) {
       console.error('Error:', error);
       toast.error(error.message || 'Connection error', { duration: 4000 });
-      addMessage({
-        id: Date.now(),
-        type: 'assistant',
-        text: `Error: ${error.message}`,
-        timestamp: new Date().toISOString(),
-      });
+      addMessage({ id: Date.now(), type: 'assistant', text: `Error: ${error.message}`, timestamp: new Date().toISOString() });
       setIsLoading(false);
     } finally {
       setIsStreaming(false);
@@ -245,15 +262,19 @@ function LiveTab() {
   };
 
   const handleKeyPress = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
+  };
+
+  const grouped = groupTranscripts(transcripts);
+
+  const isMe = (speaker) => {
+    const s = (speaker || '').toLowerCase();
+    return s === 'me' || s === 'speaker 1';
   };
 
   return (
     <div className="split-panel-container">
-      {/* ====== TOP PANEL: Transcript ====== */}
+      {/* ====== TOP PANEL: Chat-style Transcript ====== */}
       <div className="split-panel-top p-0 overflow-hidden">
         {/* Panel Header */}
         <div className="flex items-center justify-between px-3 py-2 border-b border-white/5">
@@ -269,62 +290,63 @@ function LiveTab() {
             }`}
           >
             {isRecording ? (
-              <>
-                <Square className="w-3 h-3" />
-                <span>Stop</span>
-              </>
+              <><Square className="w-3 h-3" /><span>Stop</span></>
             ) : (
-              <>
-                <Play className="w-3 h-3" />
-                <span>Start</span>
-              </>
+              <><Play className="w-3 h-3" /><span>Start</span></>
             )}
           </button>
         </div>
 
-        {/* Transcript Items */}
+        {/* Chat-Style Transcript */}
         <div
           ref={transcriptScrollRef}
-          className="flex-1 overflow-y-auto custom-scrollbar px-2 py-1.5 space-y-1"
+          className="flex-1 overflow-y-auto custom-scrollbar px-2 py-2 space-y-1.5"
         >
-          {transcripts.length === 0 ? (
+          {grouped.length === 0 ? (
             <div className="flex items-center justify-center h-full">
               <p className="text-white/30 text-xs text-center px-4">
-                {isRecording
-                  ? 'Listening for speech...'
-                  : 'Press Start to begin transcribing'}
+                {isRecording ? 'Listening for speech...' : 'Press Start to begin transcribing'}
               </p>
             </div>
           ) : (
             <AnimatePresence>
-              {transcripts.map((transcript, index) => (
-                <motion.div
-                  key={transcript.id || index}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.15 }}
-                  onClick={() => handleTranscriptClick(transcript)}
-                  className={`transcript-item ${
-                    selectedTranscript?.id === transcript.id ? 'selected' : ''
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-0.5">
-                    <span className="text-purple-400/80 text-[10px] font-medium">
-                      {transcript.speaker || 'Speaker'}
-                    </span>
-                    <span className="text-white/25 text-[10px]">
-                      {new Date(transcript.timestamp).toLocaleTimeString([], {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </span>
-                  </div>
-                  <p className="text-white/80 text-xs leading-relaxed">
-                    {transcript.text}
-                  </p>
-                </motion.div>
-              ))}
+              {grouped.map((group, index) => {
+                const me = isMe(group.speaker);
+                return (
+                  <motion.div
+                    key={group.id || index}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className={`flex ${me ? 'justify-end' : 'justify-start'}`}
+                    onClick={() => handleTranscriptClick(group)}
+                  >
+                    <div className={`${me ? 'chat-bubble-me' : 'chat-bubble-interviewer'} ${
+                      selectedTranscript === group.id ? 'ring-1 ring-purple-400/40' : ''
+                    }`}>
+                      {/* Speaker + Timestamp */}
+                      <div className="flex items-center justify-between gap-3 mb-0.5">
+                        <div className="flex items-center gap-1">
+                          {me ? (
+                            <User className="w-2.5 h-2.5 text-purple-400/60" />
+                          ) : (
+                            <Monitor className="w-2.5 h-2.5 text-blue-400/60" />
+                          )}
+                          <span className="chat-speaker">{group.speaker}</span>
+                        </div>
+                        <span className="chat-timestamp">
+                          {new Date(group.firstTimestamp).toLocaleTimeString([], {
+                            hour: '2-digit', minute: '2-digit'
+                          })}
+                        </span>
+                      </div>
+                      {/* Combined text */}
+                      <p className="chat-text">{group.texts.join(' ')}</p>
+                    </div>
+                  </motion.div>
+                );
+              })}
             </AnimatePresence>
           )}
         </div>
@@ -332,7 +354,7 @@ function LiveTab() {
         {transcripts.length > 0 && (
           <div className="px-3 py-1 border-t border-white/5 flex items-center justify-center">
             <ChevronDown className="w-3 h-3 text-white/20 mr-1" />
-            <span className="text-white/20 text-[10px]">Click any line for AI answer</span>
+            <span className="text-white/20 text-[10px]">Click any message for AI answer</span>
           </div>
         )}
       </div>
@@ -370,15 +392,9 @@ function LiveTab() {
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.15 }}
-                  className={`flex ${
-                    message.type === 'user' ? 'justify-end' : 'justify-start'
-                  }`}
+                  className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
-                  <div
-                    className={`max-w-[85%] ${
-                      message.type === 'user' ? 'user-bubble' : 'answer-bubble'
-                    }`}
-                  >
+                  <div className={`max-w-[85%] ${message.type === 'user' ? 'user-bubble' : 'answer-bubble'}`}>
                     <ReactMarkdown
                       className="text-xs leading-relaxed prose prose-invert max-w-none prose-p:my-1 prose-headings:my-1.5"
                       components={markdownComponents}
@@ -387,10 +403,7 @@ function LiveTab() {
                     </ReactMarkdown>
                     <div className="flex items-center justify-between mt-1">
                       <span className="text-[9px] opacity-40">
-                        {new Date(message.timestamp).toLocaleTimeString([], {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
+                        {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                       {message.type === 'assistant' && SpeechService.isSupported() && (
                         <button
@@ -416,16 +429,9 @@ function LiveTab() {
 
               {/* Streaming message */}
               {isStreaming && streamingText && (
-                <motion.div
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex justify-start"
-                >
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex justify-start">
                   <div className="max-w-[85%] answer-bubble">
-                    <ReactMarkdown
-                      className="text-xs leading-relaxed prose prose-invert max-w-none prose-p:my-1"
-                      components={markdownComponents}
-                    >
+                    <ReactMarkdown className="text-xs leading-relaxed prose prose-invert max-w-none prose-p:my-1" components={markdownComponents}>
                       {streamingText}
                     </ReactMarkdown>
                     <span className="inline-block w-1.5 h-3 bg-purple-400 ml-0.5 animate-pulse rounded-sm"></span>
@@ -434,14 +440,8 @@ function LiveTab() {
               )}
 
               {isLoading && !isStreaming && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="flex justify-start"
-                >
-                  <div className="answer-bubble p-3">
-                    <Loader className="w-4 h-4 text-purple-300 animate-spin" />
-                  </div>
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
+                  <div className="answer-bubble p-3"><Loader className="w-4 h-4 text-purple-300 animate-spin" /></div>
                 </motion.div>
               )}
             </>

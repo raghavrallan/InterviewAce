@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import {
   Globe, Video, Mic, Headphones, Info, Eye, EyeOff, Ghost, Layers,
   Keyboard, Building2, Briefcase, CheckCircle, XCircle, ChevronDown,
-  Volume2, Zap
+  Volume2, Zap, Monitor, Users
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
@@ -52,6 +52,9 @@ function SettingsTab() {
     visibilityMode, audioInputDevice, audioOutputDevice, setAudioInputDevice, setAudioOutputDevice,
     selectedCompany, setSelectedCompany, setCompanyTips,
     sttProvider, setSttProvider,
+    captureMode, setCaptureMode,
+    speakerMap, setSpeakerMap,
+    autoStartOnMeeting, setAutoStartOnMeeting,
     ttsEnabled, setTtsEnabled, ttsVoice, setTtsVoice, ttsRate, setTtsRate
   } = useStore();
   const [audioInputDevices, setAudioInputDevices] = useState([]);
@@ -412,6 +415,95 @@ function SettingsTab() {
             <p className="text-white/20 text-[10px]">
               Deepgram needs DEEPGRAM_API_KEY in backend .env (free at deepgram.com)
             </p>
+          </div>
+        </AccordionSection>
+
+        {/* Audio Capture Mode */}
+        <AccordionSection title="Audio Capture Mode" icon={Monitor} iconColor="text-cyan-300" defaultOpen={false}>
+          <div className="space-y-2">
+            <div className="space-y-1.5">
+              {[
+                { id: 'diarization', label: 'Standard (AI Speaker Detection)', desc: 'Single mic stream, Deepgram AI identifies speakers', badge: 'Default' },
+                { id: 'dual', label: 'Enhanced (Separate System Audio)', desc: 'Two streams: mic + system audio for cleaner separation', badge: 'Pro' },
+              ].map((mode) => (
+                <button
+                  key={mode.id}
+                  onClick={() => {
+                    setCaptureMode(mode.id);
+                    toast.success(`Capture mode: ${mode.label}`);
+                  }}
+                  className={`w-full flex items-center justify-between p-2 rounded-lg transition-colors text-left ${
+                    captureMode === mode.id
+                      ? 'bg-cyan-500/10 border border-cyan-400/20'
+                      : 'bg-white/[0.02] border border-transparent hover:bg-white/[0.04]'
+                  }`}
+                >
+                  <div>
+                    <p className={`text-[11px] font-medium ${captureMode === mode.id ? 'text-white' : 'text-white/60'}`}>
+                      {mode.label}
+                    </p>
+                    <p className="text-white/25 text-[10px]">{mode.desc}</p>
+                  </div>
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded ${
+                    captureMode === mode.id ? 'bg-cyan-500/20 text-cyan-300' : 'bg-white/5 text-white/30'
+                  }`}>
+                    {mode.badge}
+                  </span>
+                </button>
+              ))}
+            </div>
+            {captureMode === 'dual' && (
+              <p className="text-yellow-300/60 text-[10px] p-2 bg-yellow-500/5 border border-yellow-400/10 rounded-lg">
+                Enhanced mode requires screen sharing permission to capture system audio. A small screen share dialog will appear when recording starts.
+              </p>
+            )}
+          </div>
+        </AccordionSection>
+
+        {/* Speaker Labels */}
+        <AccordionSection title="Speaker Labels" icon={Users} iconColor="text-green-300" defaultOpen={false}>
+          <div className="space-y-2">
+            <div>
+              <label className="text-white/40 text-[10px] mb-1 block">Speaker 0 (Interviewer)</label>
+              <input
+                type="text"
+                value={speakerMap[0] || ''}
+                onChange={(e) => setSpeakerMap({ ...speakerMap, 0: e.target.value })}
+                className="w-full input-sm bg-white/[0.03]"
+                placeholder="Interviewer"
+              />
+            </div>
+            <div>
+              <label className="text-white/40 text-[10px] mb-1 block">Speaker 1 (Me)</label>
+              <input
+                type="text"
+                value={speakerMap[1] || ''}
+                onChange={(e) => setSpeakerMap({ ...speakerMap, 1: e.target.value })}
+                className="w-full input-sm bg-white/[0.03]"
+                placeholder="Me"
+              />
+            </div>
+            <p className="text-white/20 text-[10px]">
+              Customize how speakers are labeled in the transcript
+            </p>
+
+            {/* Auto-start on meeting toggle */}
+            <div className="flex items-center justify-between p-2 bg-white/[0.03] rounded-lg mt-2">
+              <span className="text-white/60 text-[11px]">Auto-start on meeting</span>
+              <button
+                onClick={() => {
+                  setAutoStartOnMeeting(!autoStartOnMeeting);
+                  toast.success(autoStartOnMeeting ? 'Auto-start off' : 'Auto-start on');
+                }}
+                className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
+                  autoStartOnMeeting
+                    ? 'bg-green-500/20 text-green-300 border border-green-400/30'
+                    : 'bg-white/5 text-white/40 border border-white/10'
+                }`}
+              >
+                {autoStartOnMeeting ? 'On' : 'Off'}
+              </button>
+            </div>
           </div>
         </AccordionSection>
 

@@ -798,6 +798,93 @@
     border-radius: var(--radius-xl);
     padding: 10px 14px;
   }
+
+  /* =============================================================================
+     CHAT BUBBLE SYSTEM - Dual-speaker transcript
+     ============================================================================= */
+
+  .chat-bubble-interviewer {
+    background: linear-gradient(
+      135deg,
+      rgba(59, 130, 246, 0.12) 0%,
+      rgba(6, 182, 212, 0.08) 100%
+    );
+    border: 1px solid rgba(59, 130, 246, 0.2);
+    border-radius: 4px 16px 16px 16px;
+    padding: 8px 12px;
+    max-width: 85%;
+  }
+
+  .chat-bubble-me {
+    background: linear-gradient(
+      135deg,
+      rgba(139, 92, 246, 0.15) 0%,
+      rgba(168, 85, 247, 0.1) 100%
+    );
+    border: 1px solid rgba(139, 92, 246, 0.25);
+    border-radius: 16px 4px 16px 16px;
+    padding: 8px 12px;
+    max-width: 85%;
+  }
+
+  .chat-bubble-interim {
+    opacity: 0.5;
+    border-style: dashed;
+    animation: interimPulse 2s ease-in-out infinite;
+  }
+
+  @keyframes interimPulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 0.3; }
+  }
+
+  .chat-bubble-interviewer .chat-speaker {
+    color: rgba(96, 165, 250, 0.8);
+  }
+
+  .chat-bubble-me .chat-speaker {
+    color: rgba(192, 132, 252, 0.8);
+  }
+
+  .chat-speaker {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 2px;
+  }
+
+  .chat-timestamp {
+    font-size: 9px;
+    color: rgba(255, 255, 255, 0.25);
+  }
+
+  .chat-text {
+    font-size: 12px;
+    line-height: 1.5;
+    color: rgba(255, 255, 255, 0.85);
+  }
+
+  /* Meeting badge in command bar */
+  .meeting-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 50px;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    background: rgba(34, 197, 94, 0.12);
+    color: rgba(34, 197, 94, 0.9);
+    border: 1px solid rgba(34, 197, 94, 0.2);
+    animation: meetingPulse 3s ease-in-out infinite;
+  }
+
+  @keyframes meetingPulse {
+    0%, 100% { border-color: rgba(34, 197, 94, 0.2); }
+    50% { border-color: rgba(34, 197, 94, 0.5); }
+  }
 }
 
 /* =============================================================================

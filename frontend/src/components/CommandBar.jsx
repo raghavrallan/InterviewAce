@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { GripVertical, Mic, MicOff, Eye, EyeOff, Ghost, Layers, X } from 'lucide-react';
+import { GripVertical, Mic, MicOff, Eye, EyeOff, Ghost, Layers, X, Monitor } from 'lucide-react';
 import { motion } from 'framer-motion';
 import useStore from '../store/useStore';
 import toast from 'react-hot-toast';
@@ -37,7 +37,10 @@ function CommandBar() {
     visibilityMode, setVisibilityMode,
     isRecording, setIsRecording,
     sessionStartTime, setSessionStartTime,
-    activeTab, setActiveTab
+    activeTab, setActiveTab,
+    captureMode,
+    detectedPlatform, setDetectedPlatform,
+    autoStartOnMeeting,
   } = useStore();
 
   const [elapsed, setElapsed] = useState('00:00');
@@ -45,7 +48,7 @@ function CommandBar() {
   const isDraggingRef = useRef(false);
   const dragStartRef = useRef({ x: 0, y: 0 });
 
-  // JS-based window drag (avoids Chromium bug with -webkit-app-region on transparent windows)
+  // JS-based window drag
   const handleDragMouseDown = useCallback((e) => {
     if (!window.electronAPI) return;
     isDraggingRef.current = true;
@@ -59,7 +62,7 @@ function CommandBar() {
       try {
         const pos = await window.electronAPI.getWindowPosition();
         window.electronAPI.setWindowPosition(pos.x + dx, pos.y + dy);
-      } catch (_) { /* ignore */ }
+      } catch (_) {}
     };
 
     const handleMouseUp = () => {
@@ -81,8 +84,28 @@ function CommandBar() {
       window.electronAPI.getVisibilityMode().then(mode => {
         setVisibilityMode(mode);
       });
+
+      // Listen for meeting detection from main process
+      if (window.electronAPI.onMeetingDetected) {
+        window.electronAPI.onMeetingDetected((platform) => {
+          setDetectedPlatform(platform);
+          if (platform && autoStartOnMeeting && !isRecording) {
+            // Auto-start transcript when meeting is detected
+            setIsRecording(true);
+            setSessionStartTime(Date.now());
+            toast.success(`Meeting detected: ${platform.name}. Auto-starting transcript.`, { duration: 2000 });
+          }
+        });
+      }
+
+      // Check for existing meeting on mount
+      if (window.electronAPI.getCurrentMeeting) {
+        window.electronAPI.getCurrentMeeting().then(platform => {
+          if (platform) setDetectedPlatform(platform);
+        });
+      }
     }
-  }, [setVisibilityMode]);
+  }, [setVisibilityMode, setDetectedPlatform, autoStartOnMeeting, isRecording, setIsRecording, setSessionStartTime]);
 
   // Session timer
   useEffect(() => {
@@ -100,9 +123,7 @@ function CommandBar() {
       }
       if (!isRecording) setElapsed('00:00');
     }
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [isRecording, sessionStartTime]);
 
   const handleAudioToggle = () => {
@@ -125,16 +146,14 @@ function CommandBar() {
   };
 
   const handleClose = () => {
-    if (window.electronAPI) {
-      window.electronAPI.closeWindow();
-    }
+    if (window.electronAPI) window.electronAPI.closeWindow();
   };
 
   const ModeIcon = MODE_ICONS[visibilityMode] || Eye;
 
   return (
     <div className="command-bar">
-      {/* Drag Handle + Logo (JS-based drag area) */}
+      {/* Drag Handle + Logo */}
       <div
         className="flex items-center gap-2 select-none"
         onMouseDown={handleDragMouseDown}
@@ -163,11 +182,26 @@ function CommandBar() {
         )}
       </button>
 
+      {/* Enhanced mode indicator */}
+      {captureMode === 'dual' && (
+        <div className="flex items-center gap-0.5" title="Enhanced dual-stream mode">
+          <Monitor className="w-3 h-3 text-cyan-400/70" />
+          <Mic className="w-2.5 h-2.5 text-cyan-400/70 -ml-1" />
+        </div>
+      )}
+
       {/* Session Timer Pill */}
       <div className={`command-bar-timer ${isRecording ? 'active' : ''}`}>
         {isRecording && <span className="rec-dot-sm"></span>}
         <span>{elapsed}</span>
       </div>
+
+      {/* Meeting Platform Badge */}
+      {detectedPlatform && (
+        <div className="meeting-badge" title={`In ${detectedPlatform.name}`}>
+          <span>{detectedPlatform.name}</span>
+        </div>
+      )}
 
       {/* Separator */}
       <div className="w-px h-4 bg-white/10"></div>
