@@ -27,11 +27,10 @@ function buildDeepgramUrl(language = 'en', enableDiarize = false) {
     language,
     punctuate: 'true',
     interim_results: 'true',
-    endpointing: '300',
+    endpointing: '150',       // 150ms silence = faster speech finalization (was 300)
     vad_events: 'true',
     smart_format: 'true',
-    utterances: 'true',
-    filler_words: 'true',
+    // Removed utterances + filler_words for lower latency
     // Do NOT specify encoding/sample_rate/channels - Deepgram auto-detects from webm container
   });
 

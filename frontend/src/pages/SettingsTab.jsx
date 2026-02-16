@@ -423,8 +423,8 @@ function SettingsTab() {
           <div className="space-y-2">
             <div className="space-y-1.5">
               {[
-                { id: 'diarization', label: 'Standard (AI Speaker Detection)', desc: 'Single mic stream, Deepgram AI identifies speakers', badge: 'Default' },
-                { id: 'dual', label: 'Enhanced (Separate System Audio)', desc: 'Two streams: mic + system audio for cleaner separation', badge: 'Pro' },
+                { id: 'dual', label: 'Enhanced (Separate System Audio)', desc: 'Recommended when using headphones. Captures interviewer audio from system separately.', badge: 'Recommended' },
+                { id: 'diarization', label: 'Standard (AI Speaker Detection)', desc: 'Fallback: single mic stream. Only works if interviewer audio plays through speakers (not headphones).', badge: 'Fallback' },
               ].map((mode) => (
                 <button
                   key={mode.id}
@@ -453,8 +453,13 @@ function SettingsTab() {
               ))}
             </div>
             {captureMode === 'dual' && (
+              <p className="text-cyan-300/60 text-[10px] p-2 bg-cyan-500/5 border border-cyan-400/10 rounded-lg">
+                Captures your mic (Me) and system audio (Interviewer) on separate channels. Screen share permission is auto-granted in the desktop app.
+              </p>
+            )}
+            {captureMode === 'diarization' && (
               <p className="text-yellow-300/60 text-[10px] p-2 bg-yellow-500/5 border border-yellow-400/10 rounded-lg">
-                Enhanced mode requires screen sharing permission to capture system audio. A small screen share dialog will appear when recording starts.
+                Only captures your microphone. If you use headphones, the interviewer's voice will NOT be transcribed. Switch to Enhanced mode for headphone use.
               </p>
             )}
           </div>

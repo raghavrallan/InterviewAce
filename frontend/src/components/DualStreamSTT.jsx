@@ -1,36 +1,52 @@
-import { useEffect, useState, useRef } from 'react';
-import { Mic, MicOff, Wifi, WifiOff, Monitor } from 'lucide-react';
+import { useEffect, useState, useRef, useCallback } from 'react';
+import { Mic, MicOff, Wifi, WifiOff, Monitor, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
+import useStore from '../store/useStore';
 
 /**
- * Dual-Stream STT Component (Enhanced Mode)
+ * Dual-Stream STT Component (Enhanced Mode - Default)
  * Two separate audio streams with two WebSocket connections:
- *   - Microphone -> /ws/transcribe?speaker=me
- *   - System audio (getDisplayMedia) -> /ws/transcribe?speaker=interviewer
+ *   - Microphone -> /ws/transcribe?speaker=me       (user's voice)
+ *   - System audio (getDisplayMedia loopback) -> /ws/transcribe?speaker=interviewer
+ * 
+ * Speaker labels are resolved via speakerMap from the store.
+ * Interim transcripts are passed to parent with isFinal=false for inline display.
  */
 function DualStreamSTT({ isRecording, onTranscript }) {
+  const { speakerMap } = useStore();
+
   const [micConnected, setMicConnected] = useState(false);
   const [sysConnected, setSysConnected] = useState(false);
-  const [interimTranscript, setInterimTranscript] = useState('');
+  const [sysAvailable, setSysAvailable] = useState(true);
 
-  // Mic refs
+  // Refs
   const micWsRef = useRef(null);
   const micRecorderRef = useRef(null);
   const micStreamRef = useRef(null);
-
-  // System audio refs
   const sysWsRef = useRef(null);
   const sysRecorderRef = useRef(null);
   const sysStreamRef = useRef(null);
-
-  const interimBufferRef = useRef('');
   const isCleaningUpRef = useRef(false);
 
+  // Stable refs for callbacks
   const onTranscriptRef = useRef(onTranscript);
   useEffect(() => { onTranscriptRef.current = onTranscript; }, [onTranscript]);
+  const speakerMapRef = useRef(speakerMap);
+  useEffect(() => { speakerMapRef.current = speakerMap; }, [speakerMap]);
 
-  // Helper: create a MediaRecorder -> WebSocket pipeline
-  const createStreamPipeline = (stream, speakerLabel, setConnected) => {
+  // Resolve speaker label from speakerMap
+  const resolveLabel = useCallback((rawLabel) => {
+    const map = speakerMapRef.current;
+    if (rawLabel === 'me') return map?.[1] || 'Me';
+    if (rawLabel === 'interviewer') return map?.[0] || 'Interviewer';
+    return rawLabel;
+  }, []);
+
+  // Per-pipeline interim buffer (keyed by speakerLabel)
+  const interimBuffersRef = useRef({ me: '', interviewer: '' });
+
+  // Helper: create a MediaRecorder -> WebSocket pipeline for one stream
+  const createStreamPipeline = useCallback((stream, speakerLabel, setConnected) => {
     const wsUrl = `ws://localhost:5000/ws/transcribe?language=en&speaker=${speakerLabel}`;
     const ws = new WebSocket(wsUrl);
 
@@ -41,11 +57,11 @@ function DualStreamSTT({ isRecording, onTranscript }) {
         const data = JSON.parse(event.data);
 
         if (data.type === 'transcript') {
-          const speaker = data.speaker === 'me' ? 'Me' : 'Interviewer';
+          const speaker = resolveLabel(speakerLabel);
 
           if (data.is_final && data.transcript.trim()) {
-            interimBufferRef.current = '';
-            setInterimTranscript('');
+            // Clear interim for this pipeline
+            interimBuffersRef.current[speakerLabel] = '';
 
             if (onTranscriptRef.current) {
               onTranscriptRef.current({
@@ -57,32 +73,40 @@ function DualStreamSTT({ isRecording, onTranscript }) {
                 confidence: data.confidence,
               });
             }
-          } else if (!data.is_final) {
-            interimBufferRef.current = data.transcript;
-            setInterimTranscript(`[${speaker}] ${data.transcript}`);
+          } else if (!data.is_final && data.transcript.trim()) {
+            // Interim transcript -- pass to parent for inline display
+            interimBuffersRef.current[speakerLabel] = data.transcript;
+
+            if (onTranscriptRef.current) {
+              onTranscriptRef.current({
+                id: `interim-${speakerLabel}`,
+                text: data.transcript,
+                speaker,
+                timestamp: new Date().toISOString(),
+                isFinal: false,
+              });
+            }
           }
         } else if (data.type === 'utterance_end') {
-          if (interimBufferRef.current.trim() && onTranscriptRef.current) {
-            const speaker = speakerLabel === 'me' ? 'Me' : 'Interviewer';
+          const buf = interimBuffersRef.current[speakerLabel];
+          if (buf && buf.trim() && onTranscriptRef.current) {
             onTranscriptRef.current({
               id: Date.now() + Math.random(),
-              text: interimBufferRef.current.trim(),
-              speaker,
+              text: buf.trim(),
+              speaker: resolveLabel(speakerLabel),
               timestamp: new Date().toISOString(),
               isFinal: true,
             });
-            interimBufferRef.current = '';
-            setInterimTranscript('');
+            interimBuffersRef.current[speakerLabel] = '';
           }
         } else if (data.type === 'status' && data.message === 'connected') {
           setConnected(true);
-          // Start MediaRecorder once Deepgram is ready
           startRecorder(stream, ws, speakerLabel);
         } else if (data.type === 'status' && data.message === 'disconnected') {
           setConnected(false);
         } else if (data.type === 'error') {
           console.error(`[DualSTT:${speakerLabel}] Error:`, data.message);
-          toast.error(`${speakerLabel}: ${data.message}`, { duration: 4000 });
+          toast.error(`${resolveLabel(speakerLabel)}: ${data.message}`, { duration: 4000 });
         }
       } catch (err) {
         console.error(`[DualSTT:${speakerLabel}] Parse error:`, err);
@@ -93,7 +117,7 @@ function DualStreamSTT({ isRecording, onTranscript }) {
     ws.onclose = () => setConnected(false);
 
     return ws;
-  };
+  }, [resolveLabel]);
 
   const startRecorder = (stream, ws, label) => {
     try {
@@ -107,62 +131,77 @@ function DualStreamSTT({ isRecording, onTranscript }) {
         }
       };
       recorder.onerror = (e) => console.error(`[DualSTT:${label}] Recorder error:`, e.error);
-      recorder.start(250);
+      // 100ms chunks for lower latency (Deepgram recommended)
+      recorder.start(100);
 
       if (label === 'me') micRecorderRef.current = recorder;
       else sysRecorderRef.current = recorder;
 
-      console.log(`[DualSTT:${label}] Recording started`);
+      console.log(`[DualSTT:${label}] Recording started (100ms chunks)`);
     } catch (error) {
       console.error(`[DualSTT:${label}] Recorder failed:`, error);
     }
   };
 
-  const stopAll = () => {
+  const stopAll = useCallback(() => {
     if (isCleaningUpRef.current) return;
     isCleaningUpRef.current = true;
 
-    // Stop mic recorder
-    if (micRecorderRef.current && micRecorderRef.current.state !== 'inactive') {
-      try { micRecorderRef.current.stop(); } catch (_) {}
-    }
-    micRecorderRef.current = null;
+    // Stop recorders
+    [micRecorderRef, sysRecorderRef].forEach(ref => {
+      if (ref.current && ref.current.state !== 'inactive') {
+        try { ref.current.stop(); } catch (_) {}
+      }
+      ref.current = null;
+    });
 
-    // Stop system recorder
-    if (sysRecorderRef.current && sysRecorderRef.current.state !== 'inactive') {
-      try { sysRecorderRef.current.stop(); } catch (_) {}
-    }
-    sysRecorderRef.current = null;
+    // Close WebSockets
+    [micWsRef, sysWsRef].forEach(ref => {
+      if (ref.current) {
+        try { if (ref.current.readyState === WebSocket.OPEN) ref.current.close(1000); } catch (_) {}
+        ref.current = null;
+      }
+    });
 
-    // Close mic WS
-    if (micWsRef.current) {
-      try { if (micWsRef.current.readyState === WebSocket.OPEN) micWsRef.current.close(1000); } catch (_) {}
-      micWsRef.current = null;
-    }
+    // Stop media streams
+    [micStreamRef, sysStreamRef].forEach(ref => {
+      if (ref.current) {
+        ref.current.getTracks().forEach(t => { try { t.stop(); } catch (_) {} });
+        ref.current = null;
+      }
+    });
 
-    // Close system WS
-    if (sysWsRef.current) {
-      try { if (sysWsRef.current.readyState === WebSocket.OPEN) sysWsRef.current.close(1000); } catch (_) {}
-      sysWsRef.current = null;
-    }
-
-    // Stop mic stream
-    if (micStreamRef.current) {
-      micStreamRef.current.getTracks().forEach(t => { try { t.stop(); } catch (_) {} });
-      micStreamRef.current = null;
-    }
-
-    // Stop system stream
-    if (sysStreamRef.current) {
-      sysStreamRef.current.getTracks().forEach(t => { try { t.stop(); } catch (_) {} });
-      sysStreamRef.current = null;
-    }
-
-    interimBufferRef.current = '';
-    setInterimTranscript('');
+    interimBuffersRef.current = { me: '', interviewer: '' };
     setMicConnected(false);
     setSysConnected(false);
     isCleaningUpRef.current = false;
+  }, []);
+
+  // Capture system audio via getDisplayMedia (Electron auto-handles via setDisplayMediaRequestHandler)
+  const captureSystemAudio = async () => {
+    try {
+      const sysStream = await navigator.mediaDevices.getDisplayMedia({
+        audio: true,
+        video: { width: 1, height: 1 },
+      });
+
+      if (sysStream.getAudioTracks().length === 0) {
+        throw new Error('No system audio track available');
+      }
+
+      // Stop video tracks -- we only need audio
+      sysStream.getVideoTracks().forEach(t => t.stop());
+
+      const audioOnlyStream = new MediaStream(sysStream.getAudioTracks());
+      sysStreamRef.current = audioOnlyStream;
+      setSysAvailable(true);
+
+      return audioOnlyStream;
+    } catch (err) {
+      console.warn('[DualSTT] System audio capture failed:', err.message);
+      setSysAvailable(false);
+      return null;
+    }
   };
 
   const startDualStreaming = async () => {
@@ -175,46 +214,59 @@ function DualStreamSTT({ isRecording, onTranscript }) {
       });
       micStreamRef.current = micStream;
 
-      // 2. Get system audio via getDisplayMedia
-      let sysStream = null;
-      try {
-        sysStream = await navigator.mediaDevices.getDisplayMedia({
-          audio: true,
-          video: { width: 1, height: 1 }, // minimal video to reduce overhead
+      // 2. Get system audio
+      const sysAudioStream = await captureSystemAudio();
+
+      if (!sysAudioStream) {
+        toast('System audio unavailable. Only your microphone will be captured.\nInterviewer audio will not appear in transcript.', {
+          duration: 4000,
+          icon: '\u26A0\uFE0F',
         });
-
-        // Check if we got audio tracks
-        if (sysStream.getAudioTracks().length === 0) {
-          throw new Error('No system audio captured. Please check "Share audio" when sharing screen.');
-        }
-
-        // Stop video tracks - we only need audio
-        sysStream.getVideoTracks().forEach(t => t.stop());
-
-        // Create audio-only stream
-        const audioOnlyStream = new MediaStream(sysStream.getAudioTracks());
-        sysStreamRef.current = audioOnlyStream;
-      } catch (sysError) {
-        console.warn('[DualSTT] System audio not available, falling back to mic-only with diarization hint');
-        toast('System audio unavailable. Using microphone only.', { duration: 3000, icon: '⚠️' });
-        // Continue with mic only - no system audio stream
       }
 
-      // 3. Open WebSocket connections
-      toast.success('Enhanced mode: streaming started', { duration: 1500 });
+      // 3. Open WebSocket pipelines
+      toast.success('Dual-stream: recording started', { duration: 1500 });
 
-      // Mic WebSocket (always available)
+      // Mic pipeline (always)
       micWsRef.current = createStreamPipeline(micStream, 'me', setMicConnected);
 
-      // System audio WebSocket (only if available)
-      if (sysStreamRef.current) {
-        sysWsRef.current = createStreamPipeline(sysStreamRef.current, 'interviewer', setSysConnected);
+      // System audio pipeline (if available)
+      if (sysAudioStream) {
+        sysWsRef.current = createStreamPipeline(sysAudioStream, 'interviewer', setSysConnected);
       }
 
     } catch (error) {
       console.error('[DualSTT] Failed:', error);
-      if (error.name === 'NotAllowedError') toast.error('Permission denied');
+      if (error.name === 'NotAllowedError') toast.error('Microphone permission denied');
       else toast.error('Failed to start: ' + error.message);
+    }
+  };
+
+  // Retry system audio capture while recording
+  const retrySysAudio = async () => {
+    if (!isRecording) return;
+
+    // Clean up previous system audio
+    if (sysRecorderRef.current && sysRecorderRef.current.state !== 'inactive') {
+      try { sysRecorderRef.current.stop(); } catch (_) {}
+    }
+    sysRecorderRef.current = null;
+    if (sysWsRef.current) {
+      try { if (sysWsRef.current.readyState === WebSocket.OPEN) sysWsRef.current.close(1000); } catch (_) {}
+      sysWsRef.current = null;
+    }
+    if (sysStreamRef.current) {
+      sysStreamRef.current.getTracks().forEach(t => { try { t.stop(); } catch (_) {} });
+      sysStreamRef.current = null;
+    }
+    setSysConnected(false);
+
+    const sysAudioStream = await captureSystemAudio();
+    if (sysAudioStream) {
+      sysWsRef.current = createStreamPipeline(sysAudioStream, 'interviewer', setSysConnected);
+      toast.success('System audio connected!', { duration: 1500 });
+    } else {
+      toast.error('System audio still unavailable', { duration: 2000 });
     }
   };
 
@@ -233,15 +285,28 @@ function DualStreamSTT({ isRecording, onTranscript }) {
             {/* Mic status */}
             <div className="flex items-center gap-1">
               <Mic className="h-3.5 w-3.5 text-green-500 animate-pulse" />
-              <span className="text-[9px]">{micConnected ? 'Me' : '...'}</span>
+              <span className="text-[9px]">{micConnected ? resolveLabel('me') : '...'}</span>
               {micConnected && <Wifi className="h-2.5 w-2.5 text-green-400" />}
             </div>
             {/* System audio status */}
             <div className="flex items-center gap-1">
               <Monitor className="h-3.5 w-3.5 text-blue-400" />
-              <span className="text-[9px]">{sysConnected ? 'Interviewer' : (sysStreamRef.current ? '...' : 'N/A')}</span>
+              <span className="text-[9px]">
+                {sysConnected ? resolveLabel('interviewer') : (sysAvailable ? '...' : 'N/A')}
+              </span>
               {sysConnected && <Wifi className="h-2.5 w-2.5 text-blue-400" />}
             </div>
+            {/* Retry button when system audio failed */}
+            {!sysAvailable && (
+              <button
+                onClick={retrySysAudio}
+                className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-300 text-[9px] border border-yellow-500/20 hover:bg-yellow-500/20 transition-colors"
+                title="Retry system audio capture"
+              >
+                <RefreshCw className="w-2.5 h-2.5" />
+                <span>Retry</span>
+              </button>
+            )}
           </>
         ) : (
           <>
@@ -250,12 +315,6 @@ function DualStreamSTT({ isRecording, onTranscript }) {
           </>
         )}
       </div>
-      {interimTranscript && (
-        <div className="mt-1 px-2 py-1 bg-purple-500/10 rounded text-[10px] text-purple-200/70 italic border border-purple-500/10">
-          {interimTranscript}
-          <span className="inline-block w-1 h-2.5 bg-purple-400 ml-0.5 animate-pulse rounded-sm"></span>
-        </div>
-      )}
     </div>
   );
 }

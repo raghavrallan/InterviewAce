@@ -17,6 +17,7 @@ function DeepgramSTT({ isRecording, onTranscript }) {
   const mediaRecorderRef = useRef(null);
   const streamRef = useRef(null);
   const interimBufferRef = useRef('');
+  const lastSpeakerRef = useRef('Speaker');
   const isCleaningUpRef = useRef(false);
 
   // Stable refs
@@ -88,6 +89,7 @@ function DeepgramSTT({ isRecording, onTranscript }) {
 
           if (data.type === 'transcript') {
             const speaker = resolveSpeaker(data);
+            lastSpeakerRef.current = speaker;
 
             if (data.is_final) {
               interimBufferRef.current = '';
@@ -114,7 +116,7 @@ function DeepgramSTT({ isRecording, onTranscript }) {
                 onTranscriptRef.current({
                   id: Date.now() + Math.random(),
                   text: interimBufferRef.current.trim(),
-                  speaker: 'Speaker',
+                  speaker: lastSpeakerRef.current,
                   timestamp: new Date().toISOString(),
                   isFinal: true,
                 });
@@ -161,7 +163,8 @@ function DeepgramSTT({ isRecording, onTranscript }) {
         if (event.data.size > 0 && ws.readyState === WebSocket.OPEN) ws.send(event.data);
       };
       mediaRecorder.onerror = (event) => console.error('[DeepgramSTT] MediaRecorder error:', event.error);
-      mediaRecorder.start(250);
+      // 100ms chunks for lower latency (Deepgram recommended)
+      mediaRecorder.start(100);
     } catch (error) {
       console.error('[DeepgramSTT] MediaRecorder failed:', error);
       toast.error('Audio recording failed: ' + error.message);

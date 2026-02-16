@@ -10,12 +10,28 @@ const useStore = create((set, get) => ({
   setResumeContext: (context) => set({ resumeContext: context }),
   setResumeSummary: (summary) => set({ resumeSummary: summary }),
 
-  // Transcripts
+  // Transcripts (supports interim: isFinal=false entries are replaced/removed on next update)
   transcripts: [],
   addTranscript: (transcript) =>
-    set((state) => ({
-      transcripts: [...state.transcripts, transcript]
-    })),
+    set((state) => {
+      if (transcript.isFinal) {
+        // Final transcript: remove any interim for same speaker pattern, then append
+        const filtered = state.transcripts.filter(t =>
+          !(t.isFinal === false && t.speaker === transcript.speaker)
+        );
+        return { transcripts: [...filtered, transcript] };
+      }
+      // Interim transcript: replace existing interim for this speaker, or append
+      const idx = state.transcripts.findIndex(t =>
+        t.isFinal === false && t.speaker === transcript.speaker
+      );
+      if (idx >= 0) {
+        const updated = [...state.transcripts];
+        updated[idx] = transcript;
+        return { transcripts: updated };
+      }
+      return { transcripts: [...state.transcripts, transcript] };
+    }),
   clearTranscripts: () => set({ transcripts: [] }),
 
   // Chat messages
@@ -62,8 +78,8 @@ const useStore = create((set, get) => ({
   sttProvider: 'deepgram',
   setSttProvider: (provider) => set({ sttProvider: provider }),
 
-  // Audio capture mode: 'diarization' (single mic + AI speaker detection) or 'dual' (mic + system audio)
-  captureMode: 'diarization',
+  // Audio capture mode: 'dual' (mic + system audio, recommended) or 'diarization' (single mic + AI speaker detection)
+  captureMode: 'dual',
   setCaptureMode: (mode) => set({ captureMode: mode }),
 
   // Speaker label mapping: { speakerId: label }

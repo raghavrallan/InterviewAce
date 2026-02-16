@@ -30,24 +30,25 @@ const markdownComponents = {
 };
 
 /**
- * Group consecutive transcripts from the same speaker into combined entries.
- * Each group has: speaker, texts[], timestamps, ids
+ * Group consecutive FINAL transcripts from the same speaker into combined entries.
+ * Interim (isFinal===false) transcripts are kept as separate entries at the end.
  */
 function groupTranscripts(transcripts) {
   if (!transcripts.length) return [];
 
+  const finals = transcripts.filter(t => t.isFinal !== false);
+  const interims = transcripts.filter(t => t.isFinal === false);
+
   const groups = [];
   let current = null;
 
-  for (const t of transcripts) {
+  for (const t of finals) {
     const speaker = t.speaker || 'Speaker';
     if (current && current.speaker === speaker) {
-      // Same speaker - append to current group
       current.texts.push(t.text);
       current.lastTimestamp = t.timestamp;
       current.ids.push(t.id);
     } else {
-      // New speaker - start new group
       if (current) groups.push(current);
       current = {
         speaker,
@@ -56,10 +57,25 @@ function groupTranscripts(transcripts) {
         lastTimestamp: t.timestamp,
         ids: [t.id],
         id: t.id,
+        isInterim: false,
       };
     }
   }
   if (current) groups.push(current);
+
+  // Append interims as individual entries (faded bubbles)
+  for (const t of interims) {
+    groups.push({
+      speaker: t.speaker || 'Speaker',
+      texts: [t.text],
+      firstTimestamp: t.timestamp,
+      lastTimestamp: t.timestamp,
+      ids: [t.id],
+      id: t.id,
+      isInterim: true,
+    });
+  }
+
   return groups;
 }
 
@@ -312,19 +328,20 @@ function LiveTab() {
             <AnimatePresence>
               {grouped.map((group, index) => {
                 const me = isMe(group.speaker);
+                const interim = group.isInterim;
                 return (
                   <motion.div
-                    key={group.id || index}
+                    key={interim ? `interim-${group.speaker}` : (group.id || index)}
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0 }}
-                    transition={{ duration: 0.15 }}
+                    transition={{ duration: 0.1 }}
                     className={`flex ${me ? 'justify-end' : 'justify-start'}`}
-                    onClick={() => handleTranscriptClick(group)}
+                    onClick={() => !interim && handleTranscriptClick(group)}
                   >
                     <div className={`${me ? 'chat-bubble-me' : 'chat-bubble-interviewer'} ${
-                      selectedTranscript === group.id ? 'ring-1 ring-purple-400/40' : ''
-                    }`}>
+                      interim ? 'chat-bubble-interim' : ''
+                    } ${selectedTranscript === group.id ? 'ring-1 ring-purple-400/40' : ''}`}>
                       {/* Speaker + Timestamp */}
                       <div className="flex items-center justify-between gap-3 mb-0.5">
                         <div className="flex items-center gap-1">
@@ -334,6 +351,7 @@ function LiveTab() {
                             <Monitor className="w-2.5 h-2.5 text-blue-400/60" />
                           )}
                           <span className="chat-speaker">{group.speaker}</span>
+                          {interim && <span className="text-[8px] text-white/30 italic ml-1">typing...</span>}
                         </div>
                         <span className="chat-timestamp">
                           {new Date(group.firstTimestamp).toLocaleTimeString([], {
@@ -342,7 +360,10 @@ function LiveTab() {
                         </span>
                       </div>
                       {/* Combined text */}
-                      <p className="chat-text">{group.texts.join(' ')}</p>
+                      <p className="chat-text">
+                        {group.texts.join(' ')}
+                        {interim && <span className="inline-block w-1 h-2.5 bg-purple-400 ml-0.5 animate-pulse rounded-sm"></span>}
+                      </p>
                     </div>
                   </motion.div>
                 );
