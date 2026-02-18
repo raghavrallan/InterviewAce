@@ -2,6 +2,17 @@ const { app, BrowserWindow, ipcMain, globalShortcut, screen, session, desktopCap
 const path = require('path');
 const { execSync } = require('child_process');
 
+// Suppress EPIPE errors globally - these occur on Windows when stdout pipe is broken
+// (harmless, but Electron shows a crash dialog for uncaught exceptions)
+process.on('uncaughtException', (err) => {
+  if (err.code === 'EPIPE' || err.message?.includes('EPIPE')) {
+    // Silently ignore broken pipe errors
+    return;
+  }
+  // For other errors, log to stderr (less likely to EPIPE) but don't show dialog
+  try { process.stderr.write(`[Main] Uncaught: ${err.message}\n`); } catch (_) {}
+});
+
 // Fix for Windows transparent window rendering
 app.disableHardwareAcceleration();
 app.commandLine.appendSwitch('enable-transparent-visuals');
@@ -10,6 +21,14 @@ const isDev = !app.isPackaged;
 let mainWindow;
 let visibilityMode = 'normal';
 let stealthEnabled = false;
+
+// Safe logger that won't crash on broken pipe
+function log(msg) {
+  try { process.stdout.write(msg + '\n'); } catch (_) {}
+}
+function logError(msg) {
+  try { process.stderr.write(msg + '\n'); } catch (_) {}
+}
 
 const VISIBILITY_MODES = {
   normal: { opacity: 0.95, alwaysOnTop: true, ignoreMouseEvents: false },
@@ -57,15 +76,16 @@ function createWindow() {
       enableStealthFeatures();
     }, 500);
 
-    console.log('Window loaded and shown');
+    log('Window loaded and shown');
 
     // Start meeting detection after window loads
     startMeetingDetection();
   });
 
-  if (isDev) {
-    mainWindow.webContents.openDevTools({ mode: 'detach' });
-  }
+  // DevTools disabled by default - use Ctrl+Shift+I to open manually if needed
+  // if (isDev) {
+  //   mainWindow.webContents.openDevTools({ mode: 'detach' });
+  // }
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -78,7 +98,7 @@ function enableStealthFeatures() {
     mainWindow.setContentProtection(true);  // Invisible in screen share
     mainWindow.setSkipTaskbar(true);        // Hide from taskbar
     stealthEnabled = true;
-    console.log('Stealth features ENABLED');
+    log('Stealth features ENABLED');
   }
 }
 
@@ -88,7 +108,7 @@ function disableStealthFeatures() {
     mainWindow.setContentProtection(false);
     mainWindow.setSkipTaskbar(false);
     stealthEnabled = false;
-    console.log('Stealth features DISABLED');
+    log('Stealth features DISABLED');
   }
 }
 
@@ -107,7 +127,7 @@ function setVisibilityMode(mode) {
     }
 
     mainWindow.webContents.send('visibility-mode-changed', { mode, opacity: settings.opacity });
-    console.log(`Mode: ${mode.toUpperCase()}`);
+    log(`Mode: ${mode.toUpperCase()}`);
   }
 }
 
@@ -174,7 +194,7 @@ function registerShortcuts() {
     }
   });
 
-  console.log('Shortcuts registered');
+  log('Shortcuts registered');
 }
 
 app.whenReady().then(() => {
@@ -182,7 +202,7 @@ app.whenReady().then(() => {
   session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
     const allowedPermissions = ['media', 'audioCapture', 'microphone', 'screen', 'display-capture', 'mediaKeySystem'];
     if (allowedPermissions.includes(permission)) {
-      console.log(`Permission granted: ${permission}`);
+      log(`Permission granted: ${permission}`);
       callback(true);
     } else {
       callback(false);
@@ -198,7 +218,7 @@ app.whenReady().then(() => {
   session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
     desktopCapturer.getSources({ types: ['screen'] }).then((sources) => {
       if (sources.length > 0) {
-        console.log('Display media: auto-selecting primary screen for system audio');
+        log('Display media: auto-selecting primary screen for system audio');
         callback({ video: sources[0], audio: 'loopback' });
       } else {
         callback({});
@@ -253,7 +273,7 @@ ipcMain.handle('get-open-windows', () => {
       processId: p.Id || 0,
     })).filter(w => w.title);
   } catch (err) {
-    console.error('Window enumeration failed:', err.message);
+    logError('Window enumeration failed: ' + err.message);
     return [];
   }
 });
@@ -314,9 +334,9 @@ function startMeetingDetection() {
         mainWindow.webContents.send('meeting-detected', platform);
       }
       if (platform) {
-        console.log(`Meeting detected: ${platform.name} (${platform.title})`);
+        log(`Meeting detected: ${platform.name} (${platform.title})`);
       } else {
-        console.log('Meeting ended');
+        log('Meeting ended');
       }
     }
   }, 5000);
@@ -324,15 +344,15 @@ function startMeetingDetection() {
 
 ipcMain.handle('get-current-meeting', () => currentMeetingPlatform);
 
-console.log('========================================');
-console.log('InterviewAce Started');
-console.log('========================================');
-console.log('Window will appear at RIGHT side of screen');
-console.log('');
-console.log('SHORTCUTS:');
-console.log('  Ctrl+Shift+N  = Normal (visible)');
-console.log('  Ctrl+Shift+S  = Stealth mode');
-console.log('  Ctrl+Shift+G  = Ghost mode');
-console.log('  Ctrl+Shift+X  = Toggle stealth features');
-console.log('  Ctrl+Shift+A  = Focus window');
-console.log('========================================');
+log('========================================');
+log('InterviewAce Started');
+log('========================================');
+log('Window will appear at RIGHT side of screen');
+log('');
+log('SHORTCUTS:');
+log('  Ctrl+Shift+N  = Normal (visible)');
+log('  Ctrl+Shift+S  = Stealth mode');
+log('  Ctrl+Shift+G  = Ghost mode');
+log('  Ctrl+Shift+X  = Toggle stealth features');
+log('  Ctrl+Shift+A  = Focus window');
+log('========================================');
