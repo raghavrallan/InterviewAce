@@ -23,8 +23,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getOpenWindows: () => ipcRenderer.invoke('get-open-windows'),
   autoAdjustForPlatform: (platform) => ipcRenderer.invoke('auto-adjust-for-platform', platform),
 
+  // Meeting detection (real-time from main process)
+  getCurrentMeeting: () => ipcRenderer.invoke('get-current-meeting'),
+  onMeetingDetected: (callback) => {
+    ipcRenderer.on('meeting-detected', (event, data) => callback(data));
+  },
+
+  // Stealth features
+  enableStealth: () => ipcRenderer.invoke('enable-stealth'),
+  disableStealth: () => ipcRenderer.invoke('disable-stealth'),
+
   // Platform info
   platform: process.platform
 });
 
-console.log('⚡ InterviewAce Preload Script Loaded');
+console.log('InterviewAce Preload Script Loaded');

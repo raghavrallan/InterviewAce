@@ -39,11 +39,20 @@ app.use('/api', routes);
 // Error handling
 app.use(errorHandler);
 
-// Start server
-app.listen(PORT, () => {
+// Start server with WebSocket support
+const http = require('http');
+const { setupDeepgramProxy } = require('./services/deepgramProxy');
+
+const server = http.createServer(app);
+
+// Attach Deepgram WebSocket proxy
+setupDeepgramProxy(server);
+
+server.listen(PORT, () => {
   logger.info(`🚀 InterviewAce Backend running on port ${PORT}`);
   logger.info(`📝 Environment: ${process.env.NODE_ENV}`);
+  logger.info(`🎙️ WebSocket transcription available at ws://localhost:${PORT}/ws/transcribe`);
 });
 
-module.exports = app;
+module.exports = { app, server };
 
