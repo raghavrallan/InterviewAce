@@ -33,40 +33,33 @@ const NAV_ITEMS = [
 ];
 
 function CommandBar() {
-  const {
-    visibilityMode, setVisibilityMode,
-    isRecording, setIsRecording,
-    sessionStartTime, setSessionStartTime,
-    activeTab, setActiveTab,
-    captureMode,
-    detectedPlatform, setDetectedPlatform,
-    autoStartOnMeeting,
-  } = useStore();
+  const visibilityMode = useStore(s => s.visibilityMode);
+  const setVisibilityMode = useStore(s => s.setVisibilityMode);
+  const isRecording = useStore(s => s.isRecording);
+  const setIsRecording = useStore(s => s.setIsRecording);
+  const sessionStartTime = useStore(s => s.sessionStartTime);
+  const setSessionStartTime = useStore(s => s.setSessionStartTime);
+  const activeTab = useStore(s => s.activeTab);
+  const setActiveTab = useStore(s => s.setActiveTab);
+  const captureMode = useStore(s => s.captureMode);
+  const detectedPlatform = useStore(s => s.detectedPlatform);
+  const setDetectedPlatform = useStore(s => s.setDetectedPlatform);
+  const autoStartOnMeeting = useStore(s => s.autoStartOnMeeting);
 
   const [elapsed, setElapsed] = useState('00:00');
   const intervalRef = useRef(null);
-  const isDraggingRef = useRef(false);
-  const dragStartRef = useRef({ x: 0, y: 0 });
 
-  // JS-based window drag
-  const handleDragMouseDown = useCallback((e) => {
-    if (!window.electronAPI) return;
-    isDraggingRef.current = true;
-    dragStartRef.current = { x: e.screenX, y: e.screenY };
-    
-    const handleMouseMove = async (moveEvent) => {
-      if (!isDraggingRef.current) return;
-      const dx = moveEvent.screenX - dragStartRef.current.x;
-      const dy = moveEvent.screenY - dragStartRef.current.y;
-      dragStartRef.current = { x: moveEvent.screenX, y: moveEvent.screenY };
-      try {
-        const pos = await window.electronAPI.getWindowPosition();
-        window.electronAPI.setWindowPosition(pos.x + dx, pos.y + dy);
-      } catch (_) {}
+  const handleDragMouseDown = useCallback(async (e) => {
+    if (!window.electronAPI?.startWindowDrag) return;
+    await window.electronAPI.startWindowDrag();
+    const startX = e.screenX;
+    const startY = e.screenY;
+
+    const handleMouseMove = (moveEvent) => {
+      window.electronAPI.dragWindow(moveEvent.screenX - startX, moveEvent.screenY - startY);
     };
 
     const handleMouseUp = () => {
-      isDraggingRef.current = false;
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };

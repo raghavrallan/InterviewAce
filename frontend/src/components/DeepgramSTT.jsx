@@ -9,7 +9,7 @@ import useStore from '../store/useStore';
  * Speaker IDs (0, 1, ...) are mapped to labels via speakerMap in store.
  */
 function DeepgramSTT({ isRecording, onTranscript }) {
-  const { speakerMap } = useStore();
+  const speakerMap = useStore(s => s.speakerMap);
   const [interimTranscript, setInterimTranscript] = useState('');
   const [isConnected, setIsConnected] = useState(false);
 

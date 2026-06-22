@@ -1,6 +1,8 @@
 const { app, BrowserWindow, ipcMain, globalShortcut, screen, session, desktopCapturer } = require('electron');
 const path = require('path');
-const { execSync } = require('child_process');
+const { execFile } = require('child_process');
+const { promisify } = require('util');
+const execFileAsync = promisify(execFile);
 
 // Suppress EPIPE errors globally - these occur on Windows when stdout pipe is broken
 // (harmless, but Electron shows a crash dialog for uncaught exceptions)
@@ -13,8 +15,6 @@ process.on('uncaughtException', (err) => {
   try { process.stderr.write(`[Main] Uncaught: ${err.message}\n`); } catch (_) {}
 });
 
-// Fix for Windows transparent window rendering
-app.disableHardwareAcceleration();
 app.commandLine.appendSwitch('enable-transparent-visuals');
 
 const isDev = !app.isPackaged;
@@ -54,6 +54,7 @@ function createWindow() {
     movable: true,
     show: true,
     hasShadow: false,
+    backgroundColor: '#00000000',
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -228,11 +229,8 @@ app.whenReady().then(() => {
     });
   });
 
-  // Small delay to ensure GPU is ready
-  setTimeout(() => {
-    createWindow();
-    registerShortcuts();
-  }, 100);
+  createWindow();
+  registerShortcuts();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -256,16 +254,28 @@ ipcMain.handle('get-window-position', () => {
   return p ? { x: p[0], y: p[1] } : { x: 0, y: 0 };
 });
 ipcMain.handle('set-window-position', (e, { x, y }) => mainWindow?.setPosition(x, y));
-ipcMain.handle('get-open-windows', () => {
+
+let dragStartPos = null;
+ipcMain.handle('start-window-drag', () => {
+  if (mainWindow) {
+    const pos = mainWindow.getPosition();
+    dragStartPos = { x: pos[0], y: pos[1] };
+  }
+});
+ipcMain.on('drag-window', (e, { dx, dy }) => {
+  if (mainWindow && dragStartPos) {
+    mainWindow.setPosition(dragStartPos.x + dx, dragStartPos.y + dy);
+  }
+});
+ipcMain.handle('get-open-windows', async () => {
   try {
-    // Use PowerShell to enumerate windows with titles (no native deps needed)
     const psCmd = `Get-Process | Where-Object {$_.MainWindowTitle -ne ''} | Select-Object Id, ProcessName, MainWindowTitle | ConvertTo-Json`;
-    const raw = execSync(`powershell -NoProfile -Command "${psCmd}"`, {
+    const { stdout } = await execFileAsync('powershell', ['-NoProfile', '-Command', psCmd], {
       encoding: 'utf-8',
       timeout: 5000,
       windowsHide: true,
     });
-    const parsed = JSON.parse(raw);
+    const parsed = JSON.parse(stdout);
     const list = Array.isArray(parsed) ? parsed : [parsed];
     return list.map(p => ({
       title: p.MainWindowTitle || '',
@@ -296,15 +306,15 @@ const MEETING_PATTERNS = {
 let currentMeetingPlatform = null;
 let meetingCheckInterval = null;
 
-function detectMeetingPlatform() {
+async function detectMeetingPlatform() {
   try {
     const psCmd = `Get-Process | Where-Object {$_.MainWindowTitle -ne ''} | Select-Object MainWindowTitle | ConvertTo-Json`;
-    const raw = execSync(`powershell -NoProfile -Command "${psCmd}"`, {
+    const { stdout } = await execFileAsync('powershell', ['-NoProfile', '-Command', psCmd], {
       encoding: 'utf-8',
       timeout: 5000,
       windowsHide: true,
     });
-    const parsed = JSON.parse(raw);
+    const parsed = JSON.parse(stdout);
     const list = Array.isArray(parsed) ? parsed : [parsed];
 
     for (const w of list) {
@@ -324,8 +334,8 @@ function detectMeetingPlatform() {
 }
 
 function startMeetingDetection() {
-  meetingCheckInterval = setInterval(() => {
-    const platform = detectMeetingPlatform();
+  meetingCheckInterval = setInterval(async () => {
+    const platform = await detectMeetingPlatform();
     const changed = (platform?.key || null) !== (currentMeetingPlatform?.key || null);
 
     if (changed) {

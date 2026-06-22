@@ -7,7 +7,7 @@ import useStore from '../store/useStore';
  * Captures both interviewer (system audio) and your mic
  */
 export const useAudioCapture = (isRecording) => {
-  const { audioInputDevice } = useStore();
+  const audioInputDevice = useStore(s => s.audioInputDevice);
   const [hasPermission, setHasPermission] = useState(false);
   const [error, setError] = useState(null);
   const mediaStreamRef = useRef(null);

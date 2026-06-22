@@ -8,7 +8,16 @@
  */
 
 const { OpenAI, AzureOpenAI } = require('openai');
+const Anthropic = require('@anthropic-ai/sdk');
 const logger = require('../utils/logger');
+
+// Normalize provider aliases to canonical names
+const PROVIDER_ALIASES = {
+  claude: 'anthropic',
+  anthropic: 'anthropic',
+  azure: 'azure',
+  openai: 'openai',
+};
 
 class AIProvider {
   constructor() {
@@ -24,11 +33,14 @@ class AIProvider {
     if (!this._provider) {
       const explicit = process.env.AI_PROVIDER;
       if (explicit) {
-        this._provider = explicit.toLowerCase();
+        this._provider = PROVIDER_ALIASES[explicit.toLowerCase()] || explicit.toLowerCase();
       } else if (process.env.AZURE_OPENAI_ENDPOINT && process.env.AZURE_OPENAI_API_KEY) {
         // Auto-detect Azure if Azure keys are present
         this._provider = 'azure';
         logger.info('Auto-detected AI provider: azure (AZURE_OPENAI_* env vars found)');
+      } else if (this._anthropicKey()) {
+        this._provider = 'anthropic';
+        logger.info('Auto-detected AI provider: anthropic (Claude key found)');
       } else if (process.env.OPENAI_API_KEY) {
         this._provider = 'openai';
         logger.info('Auto-detected AI provider: openai (OPENAI_API_KEY found)');
@@ -41,12 +53,53 @@ class AIProvider {
   }
 
   /**
+   * Resolve the Anthropic/Claude API key from supported env var names
+   */
+  _anthropicKey() {
+    return process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY || process.env.claude_key || null;
+  }
+
+  /**
+   * Switch the active provider at runtime (e.g. from a settings toggle).
+   * Resets the cached client so the next call uses the new provider.
+   */
+  setProvider(name) {
+    const canonical = PROVIDER_ALIASES[(name || '').toLowerCase()];
+    if (!canonical) {
+      throw new Error(`Unknown AI provider: ${name}. Supported: openai, azure, claude`);
+    }
+    if (!this.availableProviders().includes(canonical)) {
+      throw new Error(`Provider "${canonical}" is not configured. Check the required API keys in .env`);
+    }
+    this._provider = canonical;
+    this._client = null;
+    this._model = null;
+    logger.info(`AI provider switched to: ${canonical}`);
+    return canonical;
+  }
+
+  /**
+   * List which providers have the required credentials configured
+   */
+  availableProviders() {
+    const list = [];
+    if (process.env.AZURE_OPENAI_ENDPOINT && process.env.AZURE_OPENAI_API_KEY && process.env.AZURE_OPENAI_DEPLOYMENT) {
+      list.push('azure');
+    }
+    if (process.env.OPENAI_API_KEY) list.push('openai');
+    if (this._anthropicKey()) list.push('anthropic');
+    return list;
+  }
+
+  /**
    * Get the model/deployment name to use
    */
   get model() {
     if (!this._model) {
       if (this.provider === 'azure') {
         this._model = process.env.AZURE_OPENAI_DEPLOYMENT || process.env.AZURE_OPENAI_MODEL || 'gpt-4o-mini';
+      } else if (this.provider === 'anthropic') {
+        this._model = process.env.CLAUDE_MODEL || 'claude-sonnet-4-6';
       } else {
         this._model = process.env.OPENAI_MODEL || 'gpt-4-turbo-preview';
       }
@@ -76,9 +129,23 @@ class AIProvider {
       return this._initializeAzure();
     } else if (provider === 'openai') {
       return this._initializeOpenAI();
+    } else if (provider === 'anthropic') {
+      return this._initializeAnthropic();
     } else {
-      throw new Error(`Unsupported AI provider: ${provider}. Supported: openai, azure`);
+      throw new Error(`Unsupported AI provider: ${provider}. Supported: openai, azure, claude`);
     }
+  }
+
+  /**
+   * Initialize Anthropic (Claude) client
+   */
+  _initializeAnthropic() {
+    const apiKey = this._anthropicKey();
+    if (!apiKey) {
+      throw new Error('Claude configuration missing. Required: ANTHROPIC_API_KEY (or claude_key) in .env');
+    }
+    logger.info(`Anthropic (Claude) configured - Model: ${this.model}`);
+    return new Anthropic({ apiKey });
   }
 
   /**
@@ -129,8 +196,42 @@ class AIProvider {
    * @param {Object} options - Additional options (temperature, max_tokens, etc.)
    * @returns {Promise<Object>} - The completion response
    */
+  /**
+   * Convert OpenAI-style messages (with role:'system') into Anthropic format.
+   * Anthropic takes a top-level `system` string and messages limited to user/assistant.
+   * @returns {{ system: string, messages: Array }}
+   */
+  _toAnthropicMessages(messages) {
+    const systemParts = [];
+    const converted = [];
+    for (const m of messages) {
+      if (m.role === 'system') {
+        systemParts.push(m.content);
+      } else {
+        converted.push({ role: m.role === 'assistant' ? 'assistant' : 'user', content: m.content });
+      }
+    }
+    // Anthropic requires the first message to be from the user
+    if (converted.length === 0 || converted[0].role !== 'user') {
+      converted.unshift({ role: 'user', content: '(begin)' });
+    }
+    return { system: systemParts.join('\n\n'), messages: converted };
+  }
+
   async chat(messages, options = {}) {
     try {
+      if (this.provider === 'anthropic') {
+        const { system, messages: aMessages } = this._toAnthropicMessages(messages);
+        const response = await this.client.messages.create({
+          model: this.model,
+          system,
+          messages: aMessages,
+          temperature: options.temperature ?? 0.7,
+          max_tokens: options.max_tokens ?? 500,
+        });
+        return response;
+      }
+
       const response = await this.client.chat.completions.create({
         model: this.model,
         messages,
@@ -153,6 +254,19 @@ class AIProvider {
    */
   async chatStream(messages, options = {}) {
     try {
+      if (this.provider === 'anthropic') {
+        const { system, messages: aMessages } = this._toAnthropicMessages(messages);
+        const stream = await this.client.messages.create({
+          model: this.model,
+          system,
+          messages: aMessages,
+          temperature: options.temperature ?? 0.7,
+          max_tokens: options.max_tokens ?? 500,
+          stream: true,
+        });
+        return stream;
+      }
+
       const stream = await this.client.chat.completions.create({
         model: this.model,
         messages,
@@ -169,17 +283,41 @@ class AIProvider {
   }
 
   /**
+   * Extract the incremental text from a stream chunk, provider-agnostic.
+   * @returns {string} delta text (empty string if none)
+   */
+  getStreamDelta(chunk) {
+    if (this.provider === 'anthropic') {
+      if (chunk.type === 'content_block_delta' && chunk.delta?.type === 'text_delta') {
+        return chunk.delta.text || '';
+      }
+      return '';
+    }
+    return chunk.choices?.[0]?.delta?.content || '';
+  }
+
+  /**
    * Get the content from a chat response
    * @param {Object} response - The chat completion response
    * @returns {string} - The message content
    */
   getContent(response) {
+    if (this.provider === 'anthropic') {
+      const block = response.content?.find(b => b.type === 'text');
+      return block?.text || '';
+    }
     return response.choices[0]?.message?.content || '';
   }
 
   /**
    * Handle API errors with user-friendly messages
    */
+  _providerLabel() {
+    if (this.provider === 'azure') return 'Azure OpenAI';
+    if (this.provider === 'anthropic') return 'Anthropic Claude';
+    return 'OpenAI';
+  }
+
   _handleError(error) {
     logger.error(`AI Provider Error (${this.provider}):`, error);
 
@@ -255,7 +393,8 @@ class AIProvider {
     return {
       provider: this.provider,
       model: this.model,
-      initialized: !!this._client
+      initialized: !!this._client,
+      available: this.availableProviders()
     };
   }
 }

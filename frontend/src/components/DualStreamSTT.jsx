@@ -13,7 +13,7 @@ import useStore from '../store/useStore';
  * Interim transcripts are passed to parent with isFinal=false for inline display.
  */
 function DualStreamSTT({ isRecording, onTranscript }) {
-  const { speakerMap } = useStore();
+  const speakerMap = useStore(s => s.speakerMap);
 
   const [micConnected, setMicConnected] = useState(false);
   const [sysConnected, setSysConnected] = useState(false);

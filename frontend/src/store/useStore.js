@@ -1,6 +1,7 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 
-const useStore = create((set, get) => ({
+const useStore = create(persist((set, get) => ({
   // Resume state
   resume: null,
   resumeContext: '',
@@ -78,6 +79,12 @@ const useStore = create((set, get) => ({
   sttProvider: 'deepgram',
   setSttProvider: (provider) => set({ sttProvider: provider }),
 
+  // AI model provider (server-side): 'azure' | 'openai' | 'anthropic'
+  aiProvider: 'azure',
+  setAiProvider: (provider) => set({ aiProvider: provider }),
+  availableAiProviders: [],
+  setAvailableAiProviders: (list) => set({ availableAiProviders: list }),
+
   // Audio capture mode: 'dual' (mic + system audio, recommended) or 'diarization' (single mic + AI speaker detection)
   captureMode: 'dual',
   setCaptureMode: (mode) => set({ captureMode: mode }),
@@ -101,6 +108,27 @@ const useStore = create((set, get) => ({
   setTtsEnabled: (enabled) => set({ ttsEnabled: enabled }),
   setTtsVoice: (voice) => set({ ttsVoice: voice }),
   setTtsRate: (rate) => set({ ttsRate: rate }),
+}), {
+  name: 'interviewace-store',
+  storage: createJSONStorage(() => localStorage),
+  version: 1,
+  // Only persist data + user preferences. Never persist transient flags like
+  // isRecording / sessionStartTime / isLoading.
+  partialize: (state) => ({
+    transcripts: state.transcripts,
+    messages: state.messages,
+    resumeContext: state.resumeContext,
+    resumeSummary: state.resumeSummary,
+    resume: state.resume,
+    speakerMap: state.speakerMap,
+    sttProvider: state.sttProvider,
+    captureMode: state.captureMode,
+    aiProvider: state.aiProvider,
+    ttsEnabled: state.ttsEnabled,
+    ttsVoice: state.ttsVoice,
+    ttsRate: state.ttsRate,
+    autoStartOnMeeting: state.autoStartOnMeeting,
+  }),
 }));
 
 export default useStore;

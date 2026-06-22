@@ -205,14 +205,14 @@
     @apply rounded-2xl;
     background: linear-gradient(
       135deg,
-      rgba(30, 30, 30, 0.8) 0%,
-      rgba(24, 24, 24, 0.9) 100%
+      rgba(30, 30, 30, 0.85) 0%,
+      rgba(24, 24, 24, 0.92) 100%
     );
-    backdrop-filter: blur(40px) saturate(180%);
-    -webkit-backdrop-filter: blur(40px) saturate(180%);
+    backdrop-filter: blur(10px) saturate(150%);
+    -webkit-backdrop-filter: blur(10px) saturate(150%);
     border: var(--border-width) solid rgba(255, 255, 255, 0.08);
     box-shadow:
-      0 8px 32px 0 rgba(0, 0, 0, 0.37),
+      0 4px 16px 0 rgba(0, 0, 0, 0.3),
       inset 0 1px 1px 0 rgba(255, 255, 255, 0.05);
   }
 
@@ -220,14 +220,14 @@
     @apply rounded-2xl;
     background: linear-gradient(
       135deg,
-      rgba(18, 18, 18, 0.85) 0%,
-      rgba(15, 15, 15, 0.95) 100%
+      rgba(18, 18, 18, 0.9) 0%,
+      rgba(15, 15, 15, 0.96) 100%
     );
-    backdrop-filter: blur(40px) saturate(180%);
-    -webkit-backdrop-filter: blur(40px) saturate(180%);
+    backdrop-filter: blur(10px) saturate(150%);
+    -webkit-backdrop-filter: blur(10px) saturate(150%);
     border: var(--border-width) solid rgba(255, 255, 255, 0.04);
     box-shadow:
-      0 8px 32px 0 rgba(0, 0, 0, 0.5),
+      0 4px 16px 0 rgba(0, 0, 0, 0.4),
       inset 0 1px 1px 0 rgba(255, 255, 255, 0.03);
   }
 
@@ -301,7 +301,7 @@
 
   .glass-button {
     @apply btn btn-secondary;
-    backdrop-filter: blur(20px);
+    backdrop-filter: blur(8px);
   }
 
   /* =============================================================================
@@ -335,8 +335,8 @@
 
   .glass-input {
     @apply input;
-    backdrop-filter: blur(20px);
-    background: rgba(36, 36, 36, 0.6);
+    backdrop-filter: blur(8px);
+    background: rgba(36, 36, 36, 0.7);
   }
 
   /* =============================================================================
@@ -521,12 +521,11 @@
     padding: 0 12px;
     border-radius: 50px;
     background: rgba(16, 16, 20, 0.88);
-    backdrop-filter: blur(50px) saturate(180%);
-    -webkit-backdrop-filter: blur(50px) saturate(180%);
+    backdrop-filter: blur(12px) saturate(150%);
+    -webkit-backdrop-filter: blur(12px) saturate(150%);
     border: 1px solid rgba(255, 255, 255, 0.07);
     box-shadow:
-      0 8px 32px rgba(0, 0, 0, 0.5),
-      0 2px 8px rgba(0, 0, 0, 0.3),
+      0 4px 16px rgba(0, 0, 0, 0.4),
       inset 0 1px 0 rgba(255, 255, 255, 0.04);
   }
 
@@ -597,13 +596,12 @@
 
   .content-card {
     border-radius: 20px;
-    background: rgba(16, 16, 20, 0.88);
-    backdrop-filter: blur(50px) saturate(180%);
-    -webkit-backdrop-filter: blur(50px) saturate(180%);
+    background: rgba(16, 16, 20, 0.92);
+    backdrop-filter: blur(12px) saturate(150%);
+    -webkit-backdrop-filter: blur(12px) saturate(150%);
     border: 1px solid rgba(255, 255, 255, 0.06);
     box-shadow:
-      0 12px 48px rgba(0, 0, 0, 0.5),
-      0 4px 16px rgba(0, 0, 0, 0.3),
+      0 8px 24px rgba(0, 0, 0, 0.4),
       inset 0 1px 0 rgba(255, 255, 255, 0.03);
     overflow: hidden;
     display: flex;
@@ -671,7 +669,7 @@
   }
 
   .visibility-adaptive {
-    backdrop-filter: blur(30px);
+    backdrop-filter: blur(10px);
   }
 
   /* =============================================================================
@@ -797,6 +795,24 @@
     border: 1px solid rgba(139, 92, 246, 0.3);
     border-radius: var(--radius-xl);
     padding: 10px 14px;
+  }
+
+  /* Quick-take cue shown instantly while the detailed answer streams */
+  .quick-take {
+    border-left: 2px solid rgba(139, 92, 246, 0.5);
+    background: rgba(139, 92, 246, 0.07);
+    border-radius: 6px;
+    padding: 4px 8px;
+  }
+
+  .quick-take-label {
+    display: inline-block;
+    font-size: 8px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgba(192, 132, 252, 0.85);
+    margin-bottom: 2px;
   }
 
   /* =============================================================================

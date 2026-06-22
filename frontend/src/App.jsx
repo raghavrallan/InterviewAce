@@ -11,7 +11,11 @@ import DeepgramSTT from './components/DeepgramSTT';
 import DualStreamSTT from './components/DualStreamSTT';
 
 function App() {
-  const { activeTab, isRecording, addTranscript, sttProvider, captureMode } = useStore();
+  const activeTab = useStore(s => s.activeTab);
+  const isRecording = useStore(s => s.isRecording);
+  const addTranscript = useStore(s => s.addTranscript);
+  const sttProvider = useStore(s => s.sttProvider);
+  const captureMode = useStore(s => s.captureMode);
 
   // Memoize to prevent re-render loops in STT components
   const handleNewTranscript = useCallback((transcript) => {
@@ -57,7 +61,7 @@ function App() {
           style: {
             background: 'rgba(16, 16, 20, 0.95)',
             color: '#e0e0e0',
-            backdropFilter: 'blur(20px)',
+            backdropFilter: 'blur(8px)',
             border: '1px solid rgba(255, 255, 255, 0.08)',
             fontSize: '11px',
             padding: '6px 12px',

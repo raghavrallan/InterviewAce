@@ -16,7 +16,7 @@ router.get('/ai', (req, res) => {
         provider: info.provider,
         model: info.model,
         initialized: info.initialized,
-        availableProviders: ['openai', 'azure']
+        availableProviders: info.available
       }
     });
   } catch (error) {
@@ -25,6 +25,27 @@ router.get('/ai', (req, res) => {
       success: false,
       error: 'Failed to get AI provider status'
     });
+  }
+});
+
+/**
+ * Switch the active AI provider at runtime
+ * POST /api/status/ai/provider  { provider: 'azure' | 'openai' | 'claude' }
+ */
+router.post('/ai/provider', (req, res) => {
+  try {
+    const { provider } = req.body;
+    if (!provider) {
+      return res.status(400).json({ success: false, error: 'provider is required' });
+    }
+    const active = aiProvider.setProvider(provider);
+    res.json({
+      success: true,
+      data: { provider: active, model: aiProvider.model }
+    });
+  } catch (error) {
+    logger.error('AI provider switch error:', error);
+    res.status(400).json({ success: false, error: error.message || 'Failed to switch provider' });
   }
 });
 

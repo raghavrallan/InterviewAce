@@ -78,13 +78,16 @@ router.post('/stream', async (req, res) => {
   res.flushHeaders();
 
   try {
-    await chatService.streamAnswer(
-      question,
-      resumeContext,
-      conversationHistory || [],
-      language || 'en',
-      (chunk) => {
-        res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
+    await chatService.streamTwoPhaseAnswer(
+      {
+        question,
+        resumeContext,
+        conversationHistory: conversationHistory || [],
+        language: language || 'en',
+      },
+      (phase, chunk) => {
+        // `phase` is 'quick' or 'detailed'. `chunk` kept for backward compatibility.
+        res.write(`data: ${JSON.stringify({ phase, chunk })}\n\n`);
       }
     );
 

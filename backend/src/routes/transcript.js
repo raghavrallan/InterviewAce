@@ -24,6 +24,63 @@ router.post('/process', async (req, res, next) => {
   }
 });
 
+// Save an interview session (transcripts + AI answers) to disk
+router.post('/save', async (req, res, next) => {
+  try {
+    const { transcripts, messages, startedAt, endedAt, meta } = req.body;
+    if (!Array.isArray(transcripts) || transcripts.length === 0) {
+      return res.status(400).json({ success: false, error: 'transcripts array is required' });
+    }
+    const summary = transcriptService.saveSession({ transcripts, messages, startedAt, endedAt, meta });
+    res.json({ success: true, data: summary });
+  } catch (error) {
+    logger.error('Transcript save error:', error);
+    next(error);
+  }
+});
+
+// List saved sessions (newest first)
+router.get('/sessions', async (req, res, next) => {
+  try {
+    res.json({ success: true, data: { sessions: transcriptService.listSessions() } });
+  } catch (error) {
+    logger.error('Transcript list error:', error);
+    next(error);
+  }
+});
+
+// Get a single saved session (raw JSON)
+router.get('/sessions/:id', async (req, res, next) => {
+  try {
+    const session = transcriptService.getSession(req.params.id);
+    if (!session) return res.status(404).json({ success: false, error: 'Session not found' });
+    res.json({ success: true, data: session });
+  } catch (error) {
+    logger.error('Transcript get error:', error);
+    next(error);
+  }
+});
+
+// Download a saved session as .md or .txt
+router.get('/sessions/:id/download', async (req, res, next) => {
+  try {
+    const session = transcriptService.getSession(req.params.id);
+    if (!session) return res.status(404).json({ success: false, error: 'Session not found' });
+
+    const format = req.query.format === 'txt' ? 'txt' : 'md';
+    const body = transcriptService.formatSession(session, format);
+    const dateStr = new Date(session.startedAt).toISOString().slice(0, 19).replace(/[:T]/g, '-');
+    const filename = `interview-${dateStr}.${format}`;
+
+    res.setHeader('Content-Type', format === 'md' ? 'text/markdown' : 'text/plain');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(body);
+  } catch (error) {
+    logger.error('Transcript download error:', error);
+    next(error);
+  }
+});
+
 // Merge transcript chunks into sentences
 router.post('/merge', async (req, res, next) => {
   try {

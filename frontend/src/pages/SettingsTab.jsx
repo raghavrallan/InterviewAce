@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import {
   Globe, Video, Mic, Headphones, Info, Eye, EyeOff, Ghost, Layers,
   Keyboard, Building2, Briefcase, CheckCircle, XCircle, ChevronDown,
-  Volume2, Zap, Monitor, Users
+  Volume2, Zap, Monitor, Users, Cpu, FileText, Download, RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
@@ -11,6 +11,12 @@ import toast from 'react-hot-toast';
 import { SUPPORTED_LANGUAGES } from '../i18n';
 import PlatformDetectionService from '../services/PlatformDetectionService';
 import SpeechService from '../services/SpeechService';
+
+const AI_PROVIDER_META = {
+  azure: { label: 'Azure OpenAI', sub: 'gpt-4o-mini · fast, default' },
+  openai: { label: 'OpenAI', sub: 'GPT models' },
+  anthropic: { label: 'Claude Sonnet', sub: 'claude-sonnet-4-6 · most detailed' },
+};
 
 function AccordionSection({ title, icon: Icon, iconColor = 'text-purple-300', children, defaultOpen = false }) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
@@ -48,15 +54,32 @@ function AccordionSection({ title, icon: Icon, iconColor = 'text-purple-300', ch
 
 function SettingsTab() {
   const { t, i18n } = useTranslation();
-  const {
-    visibilityMode, audioInputDevice, audioOutputDevice, setAudioInputDevice, setAudioOutputDevice,
-    selectedCompany, setSelectedCompany, setCompanyTips,
-    sttProvider, setSttProvider,
-    captureMode, setCaptureMode,
-    speakerMap, setSpeakerMap,
-    autoStartOnMeeting, setAutoStartOnMeeting,
-    ttsEnabled, setTtsEnabled, ttsVoice, setTtsVoice, ttsRate, setTtsRate
-  } = useStore();
+  const visibilityMode = useStore(s => s.visibilityMode);
+  const audioInputDevice = useStore(s => s.audioInputDevice);
+  const audioOutputDevice = useStore(s => s.audioOutputDevice);
+  const setAudioInputDevice = useStore(s => s.setAudioInputDevice);
+  const setAudioOutputDevice = useStore(s => s.setAudioOutputDevice);
+  const selectedCompany = useStore(s => s.selectedCompany);
+  const setSelectedCompany = useStore(s => s.setSelectedCompany);
+  const setCompanyTips = useStore(s => s.setCompanyTips);
+  const sttProvider = useStore(s => s.sttProvider);
+  const setSttProvider = useStore(s => s.setSttProvider);
+  const aiProvider = useStore(s => s.aiProvider);
+  const setAiProvider = useStore(s => s.setAiProvider);
+  const availableAiProviders = useStore(s => s.availableAiProviders);
+  const setAvailableAiProviders = useStore(s => s.setAvailableAiProviders);
+  const captureMode = useStore(s => s.captureMode);
+  const setCaptureMode = useStore(s => s.setCaptureMode);
+  const speakerMap = useStore(s => s.speakerMap);
+  const setSpeakerMap = useStore(s => s.setSpeakerMap);
+  const autoStartOnMeeting = useStore(s => s.autoStartOnMeeting);
+  const setAutoStartOnMeeting = useStore(s => s.setAutoStartOnMeeting);
+  const ttsEnabled = useStore(s => s.ttsEnabled);
+  const setTtsEnabled = useStore(s => s.setTtsEnabled);
+  const ttsVoice = useStore(s => s.ttsVoice);
+  const setTtsVoice = useStore(s => s.setTtsVoice);
+  const ttsRate = useStore(s => s.ttsRate);
+  const setTtsRate = useStore(s => s.setTtsRate);
   const [audioInputDevices, setAudioInputDevices] = useState([]);
   const [audioOutputDevices, setAudioOutputDevices] = useState([]);
   const [availableVoices, setAvailableVoices] = useState([]);
@@ -68,6 +91,42 @@ function SettingsTab() {
   });
   const [companies, setCompanies] = useState([]);
   const [companiesLoading, setCompaniesLoading] = useState(false);
+  const [savedSessions, setSavedSessions] = useState([]);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
+
+  const fetchSessions = async () => {
+    setSessionsLoading(true);
+    try {
+      const res = await fetch('http://localhost:5000/api/transcript/sessions');
+      const data = await res.json();
+      if (data.success) setSavedSessions(data.data.sessions || []);
+    } catch (error) {
+      console.error('Failed to fetch transcripts:', error);
+    } finally {
+      setSessionsLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchSessions(); }, []);
+
+  const downloadSession = async (id, format = 'md') => {
+    try {
+      const res = await fetch(`http://localhost:5000/api/transcript/sessions/${id}/download?format=${format}`);
+      if (!res.ok) throw new Error('Download failed');
+      const text = await res.text();
+      const blob = new Blob([text], { type: format === 'md' ? 'text/markdown' : 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `interview-${id}.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      toast.error('Could not download transcript');
+    }
+  };
 
   // Enumerate audio devices
   useEffect(() => {
@@ -131,6 +190,39 @@ function SettingsTab() {
     };
     fetchCompanies();
   }, []);
+
+  // Load current AI provider + which providers are configured on the backend
+  useEffect(() => {
+    fetch('http://localhost:5000/api/status/ai')
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) {
+          setAvailableAiProviders(d.data.availableProviders || []);
+          if (d.data.provider) setAiProvider(d.data.provider);
+        }
+      })
+      .catch(() => {});
+  }, [setAvailableAiProviders, setAiProvider]);
+
+  const handleAiProviderChange = async (prov) => {
+    try {
+      const res = await fetch('http://localhost:5000/api/status/ai/provider', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: prov }),
+      });
+      const d = await res.json();
+      if (d.success) {
+        setAiProvider(d.data.provider);
+        toast.success(`AI model: ${AI_PROVIDER_META[d.data.provider]?.label || d.data.provider}`);
+      } else {
+        toast.error(d.error || 'Failed to switch AI provider', { duration: 4000 });
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      toast.error('Connection error');
+    }
+  };
 
   const handleCompanyChange = async (e) => {
     const companyId = e.target.value;
@@ -227,6 +319,103 @@ function SettingsTab() {
       </div>
 
       <div className="flex-1 overflow-y-auto custom-scrollbar px-2.5 py-2 space-y-2">
+        {/* AI Model Provider */}
+        <AccordionSection title="AI Model" icon={Cpu} iconColor="text-purple-300" defaultOpen={true}>
+          <div className="space-y-2">
+            <div className="space-y-1.5">
+              {(availableAiProviders.length ? availableAiProviders : ['azure']).map((prov) => {
+                const meta = AI_PROVIDER_META[prov] || { label: prov, sub: '' };
+                const active = aiProvider === prov;
+                return (
+                  <button
+                    key={prov}
+                    onClick={() => handleAiProviderChange(prov)}
+                    className={`w-full flex items-center justify-between p-2 rounded-lg transition-colors text-left ${
+                      active
+                        ? 'bg-purple-500/10 border border-purple-400/20'
+                        : 'bg-white/[0.02] border border-transparent hover:bg-white/[0.04]'
+                    }`}
+                  >
+                    <div>
+                      <p className={`text-[11px] font-medium ${active ? 'text-white' : 'text-white/60'}`}>
+                        {meta.label}
+                      </p>
+                      <p className="text-white/25 text-[10px]">{meta.sub}</p>
+                    </div>
+                    {active && <CheckCircle className="w-3.5 h-3.5 text-purple-300" />}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-white/20 text-[10px]">
+              Switches the model used for all AI answers. Claude needs ANTHROPIC_API_KEY in the backend .env.
+            </p>
+          </div>
+        </AccordionSection>
+
+        {/* Saved Transcripts */}
+        <AccordionSection title="Saved Transcripts" icon={FileText} iconColor="text-green-300" defaultOpen={false}>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-white/30 text-[10px]">
+                {savedSessions.length} saved {savedSessions.length === 1 ? 'session' : 'sessions'}
+              </span>
+              <button
+                onClick={fetchSessions}
+                disabled={sessionsLoading}
+                className="flex items-center space-x-1 text-white/40 hover:text-white/70 text-[10px]"
+              >
+                <RefreshCw className={`w-2.5 h-2.5 ${sessionsLoading ? 'animate-spin' : ''}`} />
+                <span>Refresh</span>
+              </button>
+            </div>
+
+            {savedSessions.length === 0 ? (
+              <p className="text-white/20 text-[10px] text-center py-2">
+                No saved transcripts yet. They're saved automatically when you press Stop.
+              </p>
+            ) : (
+              <div className="space-y-1.5 max-h-56 overflow-y-auto custom-scrollbar">
+                {savedSessions.map((s) => (
+                  <div
+                    key={s.id}
+                    className="p-2 bg-white/[0.02] border border-white/5 rounded-lg"
+                  >
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="text-white/70 text-[11px] font-medium">
+                        {new Date(s.startedAt).toLocaleString([], {
+                          month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                        })}
+                      </span>
+                      <div className="flex items-center space-x-1">
+                        <button
+                          onClick={() => downloadSession(s.id, 'md')}
+                          title="Download Markdown (.md)"
+                          className="flex items-center space-x-0.5 px-1.5 py-0.5 rounded bg-purple-500/15 text-purple-200/80 hover:bg-purple-500/25 text-[9px]"
+                        >
+                          <Download className="w-2.5 h-2.5" />
+                          <span>.md</span>
+                        </button>
+                        <button
+                          onClick={() => downloadSession(s.id, 'txt')}
+                          title="Download plain text (.txt)"
+                          className="px-1.5 py-0.5 rounded bg-white/5 text-white/40 hover:text-white/70 text-[9px]"
+                        >
+                          .txt
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-white/30 text-[10px] truncate">{s.preview}</p>
+                    <p className="text-white/20 text-[9px] mt-0.5">
+                      {s.lineCount} lines · {s.messageCount} AI answers
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </AccordionSection>
+
         {/* Language */}
         <AccordionSection title="Language" icon={Globe} defaultOpen={false}>
           <select
