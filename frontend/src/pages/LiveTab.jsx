@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from 'react';
-import { Play, Square, Send, Loader, ChevronDown, Volume2, VolumeX, User, Monitor } from 'lucide-react';
+import { useState, useRef, useEffect, useLayoutEffect } from 'react';
+import { Play, Square, Send, Loader, ChevronDown, Volume2, VolumeX, User, Monitor, Download, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -79,23 +79,46 @@ function groupTranscripts(transcripts) {
   return groups;
 }
 
+/** Build a human-readable Markdown document from the current session. */
+function buildTranscriptMarkdown(transcripts, messages) {
+  const hm = (ts) => (ts ? new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '');
+  const finals = (transcripts || []).filter(t => t.isFinal !== false);
+
+  let out = `# Interview Transcript\n\n- **Date:** ${new Date().toLocaleString()}\n\n## Conversation\n\n`;
+  if (!finals.length) {
+    out += '_No transcript captured._\n\n';
+  }
+  for (const t of finals) {
+    out += `**[${hm(t.timestamp)}] ${t.speaker || 'Speaker'}:** ${t.text}\n\n`;
+  }
+  if ((messages || []).length) {
+    out += `## AI Answers\n\n`;
+    for (const m of messages) {
+      out += `**${m.type === 'user' ? 'Question' : 'AI Answer'} (${hm(m.timestamp)}):**\n\n${m.text}\n\n`;
+    }
+  }
+  return out;
+}
+
 function LiveTab() {
-  const {
-    transcripts,
-    messages,
-    addMessage,
-    resumeContext,
-    isRecording,
-    setIsRecording,
-    setSessionStartTime,
-    ttsEnabled,
-    ttsVoice,
-    ttsRate
-  } = useStore();
+  const transcripts = useStore(s => s.transcripts);
+  const messages = useStore(s => s.messages);
+  const addMessage = useStore(s => s.addMessage);
+  const clearTranscripts = useStore(s => s.clearTranscripts);
+  const clearMessages = useStore(s => s.clearMessages);
+  const resumeContext = useStore(s => s.resumeContext);
+  const isRecording = useStore(s => s.isRecording);
+  const setIsRecording = useStore(s => s.setIsRecording);
+  const setSessionStartTime = useStore(s => s.setSessionStartTime);
+  const ttsEnabled = useStore(s => s.ttsEnabled);
+  const ttsVoice = useStore(s => s.ttsVoice);
+  const ttsRate = useStore(s => s.ttsRate);
 
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [streamingText, setStreamingText] = useState('');
+  const [streamingQuick, setStreamingQuick] = useState('');
+  const [streamingDetailed, setStreamingDetailed] = useState('');
+  const [streamPhase, setStreamPhase] = useState('quick');
   const [isStreaming, setIsStreaming] = useState(false);
   const [selectedTranscript, setSelectedTranscript] = useState(null);
   const [speakingMessageId, setSpeakingMessageId] = useState(null);
@@ -117,21 +140,87 @@ function LiveTab() {
 
   const transcriptScrollRef = useRef(null);
   const answerScrollRef = useRef(null);
-  const streamingMessageIdRef = useRef(null);
+  const streamingQuickRef = useRef('');
+  const streamingDetailedRef = useRef('');
+  const streamPhaseRef = useRef('quick');
+  const throttleTimerRef = useRef(null);
+  const messageRefs = useRef(new Map());
+  const pendingScrollIdRef = useRef(null);
+  const prevRecordingRef = useRef(isRecording);
 
-  // Auto-scroll transcript panel
+  // Snapshot live data in refs so the auto-save effect can read latest values
+  // without re-subscribing on every transcript chunk.
+  const transcriptsRef = useRef(transcripts);
+  const messagesRef = useRef(messages);
+  useEffect(() => { transcriptsRef.current = transcripts; }, [transcripts]);
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
+
+  // Auto-save the session to the backend whenever recording stops.
+  useEffect(() => {
+    const was = prevRecordingRef.current;
+    prevRecordingRef.current = isRecording;
+    if (!(was && !isRecording)) return; // only on true -> false transition
+
+    const finals = (transcriptsRef.current || []).filter(t => t.isFinal !== false);
+    if (finals.length === 0) return;
+
+    fetch('http://localhost:5000/api/transcript/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        transcripts: transcriptsRef.current,
+        messages: messagesRef.current,
+        startedAt: finals[0]?.timestamp,
+        endedAt: new Date().toISOString(),
+      }),
+    })
+      .then((r) => r.json())
+      .then((res) => {
+        if (res?.success) toast.success('Transcript saved to history', { duration: 1800 });
+      })
+      .catch(() => {/* backend may be offline; export still works */});
+  }, [isRecording]);
+
+  const handleExport = () => {
+    const md = buildTranscriptMarkdown(transcripts, messages);
+    const blob = new Blob([md], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const dateStr = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+    a.href = url;
+    a.download = `interview-${dateStr}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success('Transcript exported', { duration: 1500 });
+  };
+
+  const handleClear = () => {
+    clearTranscripts();
+    clearMessages();
+    setSelectedTranscript(null);
+    toast.success('Cleared — ready for a new interview', { duration: 1800 });
+  };
+
+  // Auto-scroll transcript panel to the newest line
   useEffect(() => {
     if (transcriptScrollRef.current) {
       transcriptScrollRef.current.scrollTop = transcriptScrollRef.current.scrollHeight;
     }
   }, [transcripts]);
 
-  // Auto-scroll answer panel
-  useEffect(() => {
-    if (answerScrollRef.current) {
-      answerScrollRef.current.scrollTop = answerScrollRef.current.scrollHeight;
+  // When a new question is asked, anchor IT to the top of the answer panel so the
+  // user reads the answer from its start as it streams (instead of jumping to the end).
+  useLayoutEffect(() => {
+    const id = pendingScrollIdRef.current;
+    if (id == null) return;
+    const el = messageRefs.current.get(id);
+    if (el) {
+      el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      pendingScrollIdRef.current = null;
     }
-  }, [messages, streamingText]);
+  }, [messages]);
 
   const handleStartInterview = () => {
     setIsRecording(true);
@@ -145,93 +234,66 @@ function LiveTab() {
     toast.success('Stopped', { duration: 1500 });
   };
 
-  // Handle clicking a transcript group to generate an answer
-  const handleTranscriptClick = async (group) => {
-    const combinedText = group.texts.join(' ');
-    setSelectedTranscript(group.id);
+  // Flush throttled streaming buffers into state (keeps markdown re-parsing in check)
+  const flushStreaming = () => {
+    setStreamingQuick(streamingQuickRef.current);
+    setStreamingDetailed(streamingDetailedRef.current);
+    throttleTimerRef.current = null;
+  };
 
-    if (!resumeContext) {
-      toast.error('Upload your resume first');
-      return;
-    }
-
-    try {
-      const response = await fetch('http://localhost:5000/api/chat/answer-from-transcript', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          transcriptText: combinedText,
-          resumeContext,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        addMessage({
-          id: Date.now(),
-          type: 'user',
-          text: combinedText,
-          timestamp: new Date().toISOString(),
-        });
-        addMessage({
-          id: Date.now() + 1,
-          type: 'assistant',
-          text: data.data.answer,
-          timestamp: new Date().toISOString(),
-        });
-      } else {
-        toast.error(data.error || 'Failed to generate answer', { duration: 4000 });
-      }
-    } catch (error) {
-      console.error('Error:', error);
-      toast.error('Connection error');
+  const scheduleFlush = () => {
+    if (!throttleTimerRef.current) {
+      throttleTimerRef.current = setTimeout(flushStreaming, 60);
     }
   };
 
-  // Handle sending a chat message with streaming
-  const handleSend = async () => {
-    if (!input.trim() || isLoading || isStreaming) return;
+  // Shared core: ask a question and stream a two-phase (quick cue + detailed) answer.
+  // Used by both the chat input and clicking a transcript line.
+  const askQuestion = async (questionText) => {
+    const text = (questionText || '').trim();
+    if (!text || isStreaming) return;
 
     if (!resumeContext) {
       toast.error('Upload your resume first');
       return;
     }
+
+    // Snapshot conversation history BEFORE adding the new question
+    const history = messages.map((m) => ({
+      role: m.type === 'user' ? 'user' : 'assistant',
+      content: m.text,
+    }));
 
     const userMessage = {
       id: Date.now(),
       type: 'user',
-      text: input,
+      text,
       timestamp: new Date().toISOString(),
     };
-
     addMessage(userMessage);
-    const currentInput = input;
-    setInput('');
+    pendingScrollIdRef.current = userMessage.id; // anchor this question to the top
+
     setIsLoading(true);
     setIsStreaming(true);
-    setStreamingText('');
-    streamingMessageIdRef.current = Date.now();
+    setStreamPhase('quick');
+    streamPhaseRef.current = 'quick';
+    streamingQuickRef.current = '';
+    streamingDetailedRef.current = '';
+    setStreamingQuick('');
+    setStreamingDetailed('');
 
     try {
       const response = await fetch('http://localhost:5000/api/chat/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          question: currentInput,
-          resumeContext,
-          conversationHistory: messages.map((m) => ({
-            role: m.type === 'user' ? 'user' : 'assistant',
-            content: m.text,
-          })),
-        }),
+        body: JSON.stringify({ question: text, resumeContext, conversationHistory: history }),
       });
 
       if (!response.ok) throw new Error('Failed to connect to streaming endpoint');
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
-      let fullText = '';
+      let buffer = '';
 
       setIsLoading(false);
 
@@ -239,42 +301,75 @@ function LiveTab() {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
 
         for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6);
-            if (data === '[DONE]') continue;
-            try {
-              const parsed = JSON.parse(data);
-              if (parsed.chunk) { fullText += parsed.chunk; setStreamingText(fullText); }
-              if (parsed.error) throw new Error(parsed.error);
-            } catch (e) {
-              if (e.message && !e.message.includes('JSON')) throw e;
+          if (!line.startsWith('data: ')) continue;
+          const data = line.slice(6);
+          if (data === '[DONE]') continue;
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.error) throw new Error(parsed.error);
+            if (parsed.chunk) {
+              if (parsed.phase === 'detailed') {
+                if (streamPhaseRef.current !== 'detailed') {
+                  streamPhaseRef.current = 'detailed';
+                  setStreamPhase('detailed');
+                }
+                streamingDetailedRef.current += parsed.chunk;
+              } else {
+                streamingQuickRef.current += parsed.chunk;
+              }
+              scheduleFlush();
             }
+          } catch (e) {
+            if (e.message && !e.message.includes('JSON')) throw e;
           }
         }
       }
 
-      if (fullText) {
+      if (throttleTimerRef.current) { clearTimeout(throttleTimerRef.current); throttleTimerRef.current = null; }
+
+      const detailed = streamingDetailedRef.current;
+      const quick = streamingQuickRef.current;
+      const finalText = detailed || quick;
+      if (finalText) {
         addMessage({
-          id: streamingMessageIdRef.current,
+          id: Date.now() + 1,
           type: 'assistant',
-          text: fullText,
+          text: finalText,
+          quick: detailed ? quick : '',
           timestamp: new Date().toISOString(),
         });
       }
     } catch (error) {
       console.error('Error:', error);
       toast.error(error.message || 'Connection error', { duration: 4000 });
-      addMessage({ id: Date.now(), type: 'assistant', text: `Error: ${error.message}`, timestamp: new Date().toISOString() });
+      addMessage({ id: Date.now() + 2, type: 'assistant', text: `Error: ${error.message}`, timestamp: new Date().toISOString() });
       setIsLoading(false);
     } finally {
+      if (throttleTimerRef.current) { clearTimeout(throttleTimerRef.current); throttleTimerRef.current = null; }
+      streamingQuickRef.current = '';
+      streamingDetailedRef.current = '';
+      streamPhaseRef.current = 'quick';
       setIsStreaming(false);
-      setStreamingText('');
-      streamingMessageIdRef.current = null;
+      setStreamingQuick('');
+      setStreamingDetailed('');
     }
+  };
+
+  const handleTranscriptClick = (group) => {
+    setSelectedTranscript(group.id);
+    askQuestion(group.texts.join(' '));
+  };
+
+  const handleSend = () => {
+    if (!input.trim() || isLoading || isStreaming) return;
+    const q = input;
+    setInput('');
+    askQuestion(q);
   };
 
   const handleKeyPress = (e) => {
@@ -297,6 +392,26 @@ function LiveTab() {
           <span className="text-white/60 text-[11px] font-semibold uppercase tracking-wider">
             Transcript
           </span>
+          <div className="flex items-center space-x-1.5">
+          {transcripts.length > 0 && (
+            <>
+              <button
+                onClick={handleExport}
+                title="Export transcript (.md)"
+                className="btn-sm flex items-center space-x-1 bg-white/[0.04] text-white/60 border-white/10 hover:text-white/90"
+              >
+                <Download className="w-3 h-3" />
+                <span>Export</span>
+              </button>
+              <button
+                onClick={handleClear}
+                title="Clear transcript & answers"
+                className="btn-sm flex items-center bg-white/[0.04] text-white/50 border-white/10 hover:text-red-300"
+              >
+                <Trash2 className="w-3 h-3" />
+              </button>
+            </>
+          )}
           <button
             onClick={isRecording ? handleStopInterview : handleStartInterview}
             className={`btn-sm flex items-center space-x-1.5 ${
@@ -311,6 +426,7 @@ function LiveTab() {
               <><Play className="w-3 h-3" /><span>Start</span></>
             )}
           </button>
+          </div>
         </div>
 
         {/* Chat-Style Transcript */}
@@ -410,12 +526,27 @@ function LiveTab() {
               {messages.map((message) => (
                 <motion.div
                   key={message.id}
+                  ref={(el) => {
+                    if (el) messageRefs.current.set(message.id, el);
+                    else messageRefs.current.delete(message.id);
+                  }}
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.15 }}
                   className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
                   <div className={`max-w-[85%] ${message.type === 'user' ? 'user-bubble' : 'answer-bubble'}`}>
+                    {message.type === 'assistant' && message.quick && (
+                      <div className="quick-take mb-1.5">
+                        <span className="quick-take-label">Quick take</span>
+                        <ReactMarkdown
+                          className="text-[11px] leading-snug text-purple-100/90 prose prose-invert max-w-none prose-p:my-0.5"
+                          components={markdownComponents}
+                        >
+                          {message.quick}
+                        </ReactMarkdown>
+                      </div>
+                    )}
                     <ReactMarkdown
                       className="text-xs leading-relaxed prose prose-invert max-w-none prose-p:my-1 prose-headings:my-1.5"
                       components={markdownComponents}
@@ -448,21 +579,45 @@ function LiveTab() {
                 </motion.div>
               ))}
 
-              {/* Streaming message */}
-              {isStreaming && streamingText && (
+              {/* Streaming message: quick cue first, then the detailed answer */}
+              {isStreaming && (streamingQuick || streamingDetailed) && (
                 <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex justify-start">
                   <div className="max-w-[85%] answer-bubble">
-                    <ReactMarkdown className="text-xs leading-relaxed prose prose-invert max-w-none prose-p:my-1" components={markdownComponents}>
-                      {streamingText}
-                    </ReactMarkdown>
-                    <span className="inline-block w-1.5 h-3 bg-purple-400 ml-0.5 animate-pulse rounded-sm"></span>
+                    {streamingQuick && (
+                      <div className="quick-take mb-1.5">
+                        <span className="quick-take-label">Quick take</span>
+                        <ReactMarkdown
+                          className="text-[11px] leading-snug text-purple-100/90 prose prose-invert max-w-none prose-p:my-0.5"
+                          components={markdownComponents}
+                        >
+                          {streamingQuick}
+                        </ReactMarkdown>
+                        {streamPhase === 'quick' && (
+                          <span className="inline-block w-1.5 h-3 bg-purple-400 ml-0.5 animate-pulse rounded-sm align-middle"></span>
+                        )}
+                      </div>
+                    )}
+                    {streamingDetailed && (
+                      <ReactMarkdown className="text-xs leading-relaxed prose prose-invert max-w-none prose-p:my-1" components={markdownComponents}>
+                        {streamingDetailed}
+                      </ReactMarkdown>
+                    )}
+                    {streamPhase === 'detailed' && streamingDetailed && (
+                      <span className="inline-block w-1.5 h-3 bg-purple-400 ml-0.5 animate-pulse rounded-sm align-middle"></span>
+                    )}
+                    {streamPhase === 'detailed' && !streamingDetailed && (
+                      <span className="text-[10px] text-white/40 italic">composing detailed answer…</span>
+                    )}
                   </div>
                 </motion.div>
               )}
 
-              {isLoading && !isStreaming && (
+              {isStreaming && !streamingQuick && !streamingDetailed && (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
-                  <div className="answer-bubble p-3"><Loader className="w-4 h-4 text-purple-300 animate-spin" /></div>
+                  <div className="answer-bubble p-3 flex items-center gap-2">
+                    <Loader className="w-4 h-4 text-purple-300 animate-spin" />
+                    <span className="text-[10px] text-white/40">Thinking…</span>
+                  </div>
                 </motion.div>
               )}
             </>

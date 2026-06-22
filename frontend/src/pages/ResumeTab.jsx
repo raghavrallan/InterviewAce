@@ -6,7 +6,12 @@ import useStore from '../store/useStore';
 import toast from 'react-hot-toast';
 
 function ResumeTab() {
-  const { resume, setResume, setResumeContext, setResumeSummary, resumeSummary, resumeContext } = useStore();
+  const resume = useStore(s => s.resume);
+  const setResume = useStore(s => s.setResume);
+  const setResumeContext = useStore(s => s.setResumeContext);
+  const setResumeSummary = useStore(s => s.setResumeSummary);
+  const resumeSummary = useStore(s => s.resumeSummary);
+  const resumeContext = useStore(s => s.resumeContext);
   const [uploading, setUploading] = useState(false);
   const [jobDescription, setJobDescription] = useState(null);
   const [jdUploading, setJdUploading] = useState(false);

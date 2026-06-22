@@ -64,7 +64,10 @@ function CollapsibleSection({ title, icon: Icon, iconColor = 'text-purple-300', 
 }
 
 function PracticeTab() {
-  const { resumeContext, isRecording, setIsRecording, selectedCompany } = useStore();
+  const resumeContext = useStore(s => s.resumeContext);
+  const isRecording = useStore(s => s.isRecording);
+  const setIsRecording = useStore(s => s.setIsRecording);
+  const selectedCompany = useStore(s => s.selectedCompany);
   const [currentQuestion, setCurrentQuestion] = useState(null);
   const [practiceHistory, setPracticeHistory] = useState([]);
   const [isGenerating, setIsGenerating] = useState(false);
