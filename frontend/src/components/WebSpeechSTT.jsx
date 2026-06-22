@@ -22,6 +22,8 @@ function WebSpeechSTT({ isRecording, onTranscript }) {
   const transcriptBufferRef = useRef('');
   const audioCaptureInitialized = useRef(false);
   const [currentLanguage, setCurrentLanguage] = useState(i18n.language);
+  const networkErrorCountRef = useRef(0);
+  const MAX_NETWORK_RETRIES = 3;
 
   useEffect(() => {
     // Check if browser supports Web Speech API
@@ -48,6 +50,12 @@ function WebSpeechSTT({ isRecording, onTranscript }) {
     recognition.onresult = (event) => {
       let interim = '';
       let final = '';
+
+      // Reset network error counter on successful result
+      if (networkErrorCountRef.current > 0) {
+        console.log('✅ Speech recognition working! Resetting error counter.');
+        networkErrorCountRef.current = 0;
+      }
 
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const transcript = event.results[i][0].transcript;
@@ -105,15 +113,23 @@ function WebSpeechSTT({ isRecording, onTranscript }) {
 
       if (event.error === 'not-allowed' || event.error === 'permission-denied') {
         toast.error('Microphone access denied. Please allow microphone access in your browser settings.');
+        networkErrorCountRef.current = 0; // Reset counter
       } else if (event.error === 'network') {
-        // Network error in Electron is often a false alarm - just retry
-        console.warn('Network error (likely false alarm in Electron), retrying...');
-        // Don't show error to user, will auto-restart
+        networkErrorCountRef.current += 1;
+        console.warn(`Network error (attempt ${networkErrorCountRef.current}/${MAX_NETWORK_RETRIES}) - This is common in Electron and usually safe to ignore`);
+
+        if (networkErrorCountRef.current >= MAX_NETWORK_RETRIES) {
+          console.warn('⚠️ Max network error retries reached. Speech recognition may still work despite errors.');
+          // Don't show error toast - these errors are common in Electron but recognition often works anyway
+          // Reset counter to allow future retries
+          networkErrorCountRef.current = 0;
+        }
       } else if (event.error === 'service-not-allowed') {
         toast.error('Speech recognition service not available. Please check your internet connection.');
+        networkErrorCountRef.current = 0; // Reset counter
       } else {
         console.error('Recognition error:', event.error);
-        // Don't show toast for other errors to avoid spam
+        networkErrorCountRef.current = 0; // Reset counter
       }
     };
 
@@ -125,10 +141,17 @@ function WebSpeechSTT({ isRecording, onTranscript }) {
     // Handle end (auto-restart)
     recognition.onend = () => {
       console.log('Speech recognition ended');
+
+      // Stop restarting if we've hit max network errors
+      if (networkErrorCountRef.current >= MAX_NETWORK_RETRIES) {
+        console.log('⏸️ Pausing auto-restart due to repeated network errors. Recognition may still work - try speaking!');
+        return;
+      }
+
       if (isRecording) {
-        // Auto-restart if still recording (with small delay to prevent rapid loops)
+        // Auto-restart if still recording (with delay to prevent rapid loops)
         setTimeout(() => {
-          if (isRecording) {
+          if (isRecording && networkErrorCountRef.current < MAX_NETWORK_RETRIES) {
             try {
               recognition.start();
               console.log('♻️ Speech recognition restarted');
@@ -138,7 +161,7 @@ function WebSpeechSTT({ isRecording, onTranscript }) {
               }
             }
           }
-        }, 300);
+        }, 1000); // Increased delay to 1 second to prevent rapid error loops
       }
     };
 
@@ -226,6 +249,10 @@ function WebSpeechSTT({ isRecording, onTranscript }) {
     if (!recognitionRef.current) return;
 
     if (isRecording) {
+      // Reset error counter for fresh start
+      networkErrorCountRef.current = 0;
+      console.log('🔄 Starting new recording session - error counter reset');
+
       const startRecording = async () => {
         try {
           // Try to start dual audio capture if enabled and supported

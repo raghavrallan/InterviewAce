@@ -15,7 +15,7 @@ const PORT = process.env.PORT || 5000;
 // Middleware
 app.use(helmet());
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:5173'],
+  origin: ['http://localhost:3000', 'http://localhost:3100', 'http://localhost:5173'],
   credentials: true
 }));
 app.use(express.json({ limit: '50mb' }));
@@ -39,11 +39,20 @@ app.use('/api', routes);
 // Error handling
 app.use(errorHandler);
 
-// Start server
-app.listen(PORT, () => {
+// Start server with WebSocket support
+const http = require('http');
+const { setupDeepgramProxy } = require('./services/deepgramProxy');
+
+const server = http.createServer(app);
+
+// Attach Deepgram WebSocket proxy
+setupDeepgramProxy(server);
+
+server.listen(PORT, () => {
   logger.info(`🚀 InterviewAce Backend running on port ${PORT}`);
   logger.info(`📝 Environment: ${process.env.NODE_ENV}`);
+  logger.info(`🎙️ WebSocket transcription available at ws://localhost:${PORT}/ws/transcribe`);
 });
 
-module.exports = app;
+module.exports = { app, server };
 

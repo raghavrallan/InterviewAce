@@ -1,231 +1,158 @@
-const { AzureOpenAI } = require('openai');
+const aiProvider = require('./aiProvider');
 const logger = require('../utils/logger');
 
-const SYSTEM_PROMPT = `You are an intelligent interview assistant helping a candidate answer interview questions.
+const CODE_FORMATTING = `**Code formatting:**
+- For any code, ALWAYS use fenced markdown blocks with the correct language tag (\`\`\`javascript, \`\`\`python, \`\`\`java, \`\`\`sql, ...).
+- Use single backticks for inline identifiers like \`functionName()\`.`;
 
-Your role is to:
-1. Generate answers that sound natural and conversational, as if the candidate is speaking
-2. Base answers on the candidate's resume and experience
-3. Keep answers concise, relevant, and professional
-4. Use first-person perspective (I, my, me)
-5. Match the candidate's communication style
-6. Include specific examples from their experience when possible
+// Detailed answer: accurate, complete, well-structured — but NOT padded or exaggerated.
+const DETAILED_SYSTEM_PROMPT = `You are an expert interview assistant. The candidate is in a live interview and needs the strongest possible answer to the question that was actually asked.
 
-**IMPORTANT - Code Formatting:**
-- When answering coding questions or providing technical examples, ALWAYS format code using markdown code blocks
-- Use proper syntax highlighting: \`\`\`javascript, \`\`\`python, \`\`\`java, etc.
-- For inline code references, use single backticks: \`functionName()\`
-- Example:
-  "I would use a binary search algorithm like this:
-  \`\`\`javascript
-  function binarySearch(arr, target) {
-    let left = 0, right = arr.length - 1;
-    while (left <= right) {
-      const mid = Math.floor((left + right) / 2);
-      if (arr[mid] === target) return mid;
-      if (arr[mid] < target) left = mid + 1;
-      else right = mid - 1;
-    }
-    return -1;
-  }
-  \`\`\`
-  This approach has O(log n) time complexity."
+How to answer:
+1. READ THE QUESTION CAREFULLY and answer exactly what is being asked. Do not answer a different, easier question.
+2. Speak in the first person (I, my, me) as the candidate.
+3. Be genuinely detailed and substantive: give the real reasoning, concrete specifics, trade-offs, and at least one concrete example from the candidate's resume/experience when relevant.
+4. Match depth to the question. A simple factual question gets a tight focused answer; a system-design / "tell me about a time" / technical-deep-dive question gets a thorough multi-part answer with clear structure (short headers or bullets where it helps).
+5. For coding questions, give a correct, working solution with a fenced code block, then briefly explain the approach and its time/space complexity.
 
-Important guidelines:
-- Answer in 2-6 sentences for most questions
-- Be confident but not arrogant
-- For technical questions, provide clear explanations with code examples
-- If you don't have information from the resume, acknowledge it briefly and pivot to relevant experience
-- Structure complex answers with clear sections or bullet points when needed
-- Always use proper markdown formatting for readability`;
+Hard rules:
+- Be accurate. Never invent facts about the candidate that aren't supported by the resume; if something isn't in the resume, speak generally from relevant experience instead of fabricating specifics.
+- Do NOT pad, do NOT exaggerate, do NOT repeat the question back, and do NOT add fluff like "Great question". Every sentence should add real value.
+- Sound like a confident, competent human — natural and conversational, not robotic or buzzword-stuffed.
+
+${CODE_FORMATTING}`;
+
+// Quick "cue card": an instant 2-3 line gist the candidate can start saying immediately.
+const QUICK_SYSTEM_PROMPT = `You are giving the candidate an INSTANT cue card while a fuller answer is still being prepared.
+
+Output ONLY a 2-3 line gist of how to answer — the core point(s) they can start saying right away. Adapt to the question:
+- Behavioral / "tell me about a time": the one-line situation + the key result.
+- Conceptual / "what is / explain": the crisp definition or the core idea in one or two lines.
+- Coding: the key idea or approach in one line, plus a minimal code stub/signature if it helps.
+
+Rules: No greetings, no preamble, no "Sure"/"Great question", no headings. Be direct, first-person, and concrete. This is a fast cue, not the full answer — keep it to 2-3 short lines.
+
+${CODE_FORMATTING}`;
+
+const LANGUAGE_NAMES = {
+  en: 'English', es: 'Spanish', fr: 'French', de: 'German', zh: 'Chinese',
+  ja: 'Japanese', ko: 'Korean', hi: 'Hindi', pt: 'Portuguese', ar: 'Arabic', ru: 'Russian',
+};
 
 class ChatService {
-  constructor() {
-    this._openai = null;
+  _languageName(language) {
+    return LANGUAGE_NAMES[language] || 'English';
   }
 
-  // Lazy initialization of Azure OpenAI client
-  get openai() {
-    if (!this._openai) {
-      this._openai = new AzureOpenAI({
-        apiKey: process.env.AZURE_OPENAI_API_KEY,
-        endpoint: process.env.AZURE_OPENAI_ENDPOINT,
-        apiVersion: process.env.AZURE_OPENAI_API_VERSION,
-        deployment: process.env.AZURE_OPENAI_DEPLOYMENT
-      });
-    }
-    return this._openai;
+  /**
+   * Build an OpenAI-style message array. The aiProvider converts this to the
+   * right shape for whichever provider (Azure/OpenAI/Claude) is active.
+   */
+  _buildMessages({ systemPrompt, resumeContext, language, conversationHistory = [], userContent }) {
+    const targetLanguage = this._languageName(language);
+    return [
+      { role: 'system', content: systemPrompt },
+      { role: 'system', content: `Candidate's Resume Context:\n${resumeContext || 'No resume uploaded yet'}` },
+      { role: 'system', content: `IMPORTANT: Respond in ${targetLanguage}.` },
+      ...conversationHistory,
+      { role: 'user', content: userContent },
+    ];
   }
 
   async generateAnswer({ question, resumeContext, conversationHistory = [], language = 'en' }) {
     try {
-      // Language mapping for natural language names
-      const languageNames = {
-        'en': 'English',
-        'es': 'Spanish',
-        'fr': 'French',
-        'de': 'German',
-        'zh': 'Chinese',
-        'ja': 'Japanese',
-        'ko': 'Korean',
-        'hi': 'Hindi',
-        'pt': 'Portuguese',
-        'ar': 'Arabic',
-        'ru': 'Russian'
-      };
-
-      const targetLanguage = languageNames[language] || 'English';
-
-      const messages = [
-        {
-          role: 'system',
-          content: SYSTEM_PROMPT
-        },
-        {
-          role: 'system',
-          content: `Candidate's Resume Context:\n${resumeContext || 'No resume uploaded yet'}`
-        },
-        {
-          role: 'system',
-          content: `IMPORTANT: Respond in ${targetLanguage}. The candidate needs the answer in ${targetLanguage}.`
-        },
-        ...conversationHistory,
-        {
-          role: 'user',
-          content: `Interview Question: ${question}\n\nProvide a natural, first-person answer as if you are the candidate speaking, in ${targetLanguage}.`
-        }
-      ];
-
-      const response = await this.openai.chat.completions.create({
-        model: process.env.AZURE_OPENAI_DEPLOYMENT,
-        messages,
-        temperature: 0.7,
-        max_tokens: 500
+      const messages = this._buildMessages({
+        systemPrompt: DETAILED_SYSTEM_PROMPT,
+        resumeContext,
+        language,
+        conversationHistory,
+        userContent: `Interview question: ${question}\n\nGive your full first-person answer.`,
       });
 
-      return response.choices[0].message.content;
+      const response = await aiProvider.chat(messages, { temperature: 0.6, max_tokens: 900 });
+      return aiProvider.getContent(response);
     } catch (error) {
-      logger.error('OpenAI API error:', error);
-
-      // Handle specific error types
-      if (error.status === 429 || error.code === 'insufficient_quota' || (error.error && error.error.code === 'insufficient_quota')) {
-        const err = new Error('⚠️ OpenAI API Quota Exceeded\n\nYour Azure OpenAI or OpenAI API key has run out of credits.\n\nPlease:\n1. Check your Azure OpenAI quota at portal.azure.com\n2. Or add credits to your OpenAI account at platform.openai.com\n3. Update your API keys in the .env file if needed\n\nThen try again.');
-        err.status = 429;
-        throw err;
-      }
-
-      if (error.status === 401 || error.code === 'invalid_api_key') {
-        const err = new Error('⚠️ API Key Invalid\n\nPlease check your Azure OpenAI or OpenAI API key in the .env file.');
-        err.status = 401;
-        throw err;
-      }
-
-      if (error.status === 403) {
-        const err = new Error('⚠️ API Access Forbidden\n\nYour API key does not have access to this model. Please check your Azure OpenAI deployment or OpenAI model access.');
-        err.status = 403;
-        throw err;
-      }
-
-      // Include the full error message for debugging
-      const err = new Error(`Failed to generate answer: ${error.message || error.toString() || 'Unknown error'}`);
-      err.status = error.status || 500;
-      throw err;
+      logger.error('Chat service error:', error);
+      throw error;
     }
   }
 
   async generateAnswerFromTranscript({ transcriptText, resumeContext, previousContext = [] }) {
     try {
-      const messages = [
-        {
-          role: 'system',
-          content: SYSTEM_PROMPT
-        },
-        {
-          role: 'system',
-          content: `Candidate's Resume Context:\n${resumeContext || 'No resume uploaded yet'}`
-        },
-        ...previousContext,
-        {
-          role: 'user',
-          content: `The interviewer said: "${transcriptText}"\n\nGenerate an appropriate response as if you are the candidate. If it's a question, answer it. If it's a statement, respond appropriately.`
-        }
-      ];
-
-      const response = await this.openai.chat.completions.create({
-        model: process.env.AZURE_OPENAI_DEPLOYMENT,
-        messages,
-        temperature: 0.7,
-        max_tokens: 500
+      const messages = this._buildMessages({
+        systemPrompt: DETAILED_SYSTEM_PROMPT,
+        resumeContext,
+        language: 'en',
+        conversationHistory: previousContext,
+        userContent: `The interviewer said: "${transcriptText}"\n\nIf it is a question, answer it fully in the first person. If it is a statement, respond appropriately as the candidate.`,
       });
 
-      return response.choices[0].message.content;
+      const response = await aiProvider.chat(messages, { temperature: 0.6, max_tokens: 900 });
+      return aiProvider.getContent(response);
     } catch (error) {
-      logger.error('OpenAI API error:', error);
-
-      // Handle specific error types
-      if (error.status === 429 || error.code === 'insufficient_quota' || (error.error && error.error.code === 'insufficient_quota')) {
-        const err = new Error('⚠️ OpenAI API Quota Exceeded\n\nYour Azure OpenAI or OpenAI API key has run out of credits.\n\nPlease:\n1. Check your Azure OpenAI quota at portal.azure.com\n2. Or add credits to your OpenAI account at platform.openai.com\n3. Update your API keys in the .env file if needed\n\nThen try again.');
-        err.status = 429;
-        throw err;
-      }
-
-      if (error.status === 401 || error.code === 'invalid_api_key') {
-        const err = new Error('⚠️ API Key Invalid\n\nPlease check your Azure OpenAI or OpenAI API key in the .env file.');
-        err.status = 401;
-        throw err;
-      }
-
-      // Include the full error message for debugging
-      const err = new Error(`Failed to generate answer: ${error.message || error.toString() || 'Unknown error'}`);
-      err.status = error.status || 500;
-      throw err;
+      logger.error('Chat service transcript error:', error);
+      throw error;
     }
   }
 
-  async streamAnswer(question, resumeContext, onChunk) {
+  /**
+   * Stream a single detailed answer. Kept for backward compatibility.
+   */
+  async streamAnswer(question, resumeContext, conversationHistory = [], language = 'en', onChunk) {
+    const messages = this._buildMessages({
+      systemPrompt: DETAILED_SYSTEM_PROMPT,
+      resumeContext,
+      language,
+      conversationHistory,
+      userContent: `Interview question: ${question}\n\nGive your full first-person answer.`,
+    });
+
+    const stream = await aiProvider.chatStream(messages, { temperature: 0.6, max_tokens: 900 });
+    for await (const chunk of stream) {
+      const delta = aiProvider.getStreamDelta(chunk);
+      if (delta) onChunk(delta);
+    }
+  }
+
+  /**
+   * Two-phase streaming: first emit a fast 2-3 line "quick" cue, then stream the
+   * full detailed answer. onChunk is called as onChunk(phase, text) where phase
+   * is 'quick' or 'detailed'.
+   */
+  async streamTwoPhaseAnswer({ question, resumeContext, conversationHistory = [], language = 'en' }, onChunk) {
+    const userContent = `Interview question: ${question}`;
+
+    // ---- Phase 1: quick cue (fast, short) ----
     try {
-      const messages = [
-        {
-          role: 'system',
-          content: SYSTEM_PROMPT
-        },
-        {
-          role: 'system',
-          content: `Candidate's Resume Context:\n${resumeContext || 'No resume uploaded yet'}`
-        },
-        {
-          role: 'user',
-          content: `Interview Question: ${question}\n\nProvide a natural, first-person answer.`
-        }
-      ];
-
-      const stream = await this.openai.chat.completions.create({
-        model: process.env.AZURE_OPENAI_DEPLOYMENT,
-        messages,
-        temperature: 0.7,
-        max_tokens: 500,
-        stream: true
+      const quickMessages = this._buildMessages({
+        systemPrompt: QUICK_SYSTEM_PROMPT,
+        resumeContext,
+        language,
+        conversationHistory,
+        userContent: `${userContent}\n\nGive only the 2-3 line instant cue.`,
       });
-
-      for await (const chunk of stream) {
-        const content = chunk.choices[0]?.delta?.content || '';
-        if (content) {
-          onChunk(content);
-        }
+      const quickStream = await aiProvider.chatStream(quickMessages, { temperature: 0.4, max_tokens: 160 });
+      for await (const chunk of quickStream) {
+        const delta = aiProvider.getStreamDelta(chunk);
+        if (delta) onChunk('quick', delta);
       }
     } catch (error) {
-      logger.error('OpenAI streaming error:', error);
+      // A failure in the quick phase shouldn't block the real answer.
+      logger.error('Quick-phase streaming error (continuing to detailed):', error);
+    }
 
-      // Handle specific error types
-      if (error.status === 429 || error.code === 'insufficient_quota' || (error.error && error.error.code === 'insufficient_quota')) {
-        const err = new Error('⚠️ OpenAI API Quota Exceeded - Please add credits and try again.');
-        err.status = 429;
-        throw err;
-      }
-
-      const err = new Error(`Failed to stream answer: ${error.message || error.toString() || 'Unknown error'}`);
-      err.status = error.status || 500;
-      throw err;
+    // ---- Phase 2: detailed answer ----
+    const detailedMessages = this._buildMessages({
+      systemPrompt: DETAILED_SYSTEM_PROMPT,
+      resumeContext,
+      language,
+      conversationHistory,
+      userContent: `${userContent}\n\nNow give your full, detailed first-person answer.`,
+    });
+    const detailedStream = await aiProvider.chatStream(detailedMessages, { temperature: 0.6, max_tokens: 900 });
+    for await (const chunk of detailedStream) {
+      const delta = aiProvider.getStreamDelta(chunk);
+      if (delta) onChunk('detailed', delta);
     }
   }
 }

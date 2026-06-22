@@ -1,25 +1,11 @@
-const { AzureOpenAI } = require('openai');
+const aiProvider = require('./aiProvider');
 const logger = require('../utils/logger');
 const fs = require('fs').promises;
 const path = require('path');
 
 class CompanyService {
   constructor() {
-    this._openai = null;
     this._companiesData = null;
-  }
-
-  // Lazy initialization of Azure OpenAI client
-  get openai() {
-    if (!this._openai) {
-      this._openai = new AzureOpenAI({
-        apiKey: process.env.AZURE_OPENAI_API_KEY,
-        endpoint: process.env.AZURE_OPENAI_ENDPOINT,
-        apiVersion: process.env.AZURE_OPENAI_API_VERSION,
-        deployment: process.env.AZURE_OPENAI_DEPLOYMENT
-      });
-    }
-    return this._openai;
   }
 
   /**
@@ -147,23 +133,23 @@ Return ONLY a JSON array:
 
 Return ONLY the JSON array, no additional text.`;
 
-      const response = await this.openai.chat.completions.create({
-        model: process.env.AZURE_OPENAI_DEPLOYMENT,
-        messages: [
-          {
-            role: 'system',
-            content: `You are an interview question generator specialized in ${company.name} interview preparation. Generate questions that reflect ${company.name}'s culture and values. Return only valid JSON.`
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
+      const messages = [
+        {
+          role: 'system',
+          content: `You are an interview question generator specialized in ${company.name} interview preparation. Generate questions that reflect ${company.name}'s culture and values. Return only valid JSON.`
+        },
+        {
+          role: 'user',
+          content: prompt
+        }
+      ];
+
+      const response = await aiProvider.chat(messages, {
         temperature: 0.8,
         max_tokens: 2000
       });
 
-      const content = response.choices[0].message.content.trim();
+      const content = aiProvider.getContent(response).trim();
 
       // Try to parse JSON
       try {
@@ -237,23 +223,23 @@ Provide an assessment in JSON format:
 
 Return ONLY the JSON, no additional text.`;
 
-      const response = await this.openai.chat.completions.create({
-        model: process.env.AZURE_OPENAI_DEPLOYMENT,
-        messages: [
-          {
-            role: 'system',
-            content: `You are a culture fit analyst for ${company.name}. Assess alignment with company values and culture. Return only valid JSON.`
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
+      const messages = [
+        {
+          role: 'system',
+          content: `You are a culture fit analyst for ${company.name}. Assess alignment with company values and culture. Return only valid JSON.`
+        },
+        {
+          role: 'user',
+          content: prompt
+        }
+      ];
+
+      const response = await aiProvider.chat(messages, {
         temperature: 0.5,
         max_tokens: 1500
       });
 
-      const content = response.choices[0].message.content.trim();
+      const content = aiProvider.getContent(response).trim();
 
       // Try to parse JSON
       try {

@@ -373,5 +373,12 @@ class AudioCaptureService {
   }
 }
 
-// Export singleton instance
-export default new AudioCaptureService();
+// Create singleton instance
+const audioCaptureServiceInstance = new AudioCaptureService();
+
+// Attach static methods to the instance for convenience
+audioCaptureServiceInstance.isSupported = AudioCaptureService.isSupported;
+audioCaptureServiceInstance.isLoopbackSupported = AudioCaptureService.isLoopbackSupported;
+
+// Export singleton instance with static methods
+export default audioCaptureServiceInstance;

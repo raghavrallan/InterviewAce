@@ -33,7 +33,7 @@ services:
     container_name: interview-ace-frontend
     restart: unless-stopped
     ports:
-      - "3000:80"
+      - "3100:80"
     depends_on:
       - backend
     networks:

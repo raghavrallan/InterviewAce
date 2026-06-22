@@ -23,31 +23,17 @@ Before you begin, ensure you have:
 
 ## 🔑 API Keys Setup
 
-### 1. OpenAI API Key
+### Azure OpenAI API Key
 
-1. Go to [OpenAI Platform](https://platform.openai.com/)
-2. Sign up or log in
-3. Navigate to **API Keys** section
-4. Click **Create new secret key**
-5. Copy the key (starts with `sk-`)
-
-**Pricing:**
-- GPT-4 Turbo: ~$0.01 per request (average)
-- Set up billing limits to control costs
-
-### 2. LiveKit Account
-
-1. Go to [LiveKit Cloud](https://livekit.io/)
-2. Sign up for free account
-3. Create a new project
+1. Go to [Azure Portal](https://portal.azure.com/)
+2. Create or access your Azure OpenAI resource
+3. Navigate to **Keys and Endpoint** section
 4. Copy:
+   - **Endpoint URL**
    - **API Key**
-   - **API Secret**
-   - **WebSocket URL** (format: `wss://your-project.livekit.cloud`)
+   - **Deployment Name** (e.g., `gpt-4o-mini`)
 
-**Free Tier:**
-- 50 GB bandwidth per month
-- Perfect for personal use
+**Note:** Ensure your deployment uses the GPT-4o-mini model for optimal performance.
 
 ## 📦 Installation Steps
 
@@ -93,14 +79,12 @@ This runs:
 
 3. Fill in your API keys:
    ```env
-   # OpenAI Configuration
-   OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxxxxxxxxxxx
-   OPENAI_MODEL=gpt-4-turbo-preview
-
-   # LiveKit Configuration
-   LIVEKIT_API_KEY=APIxxxxxxxxx
-   LIVEKIT_API_SECRET=xxxxxxxxxxxxxxxxxxxxxxxx
-   LIVEKIT_URL=wss://your-project.livekit.cloud
+   # AI Service Configuration (Azure OpenAI)
+   AZURE_OPENAI_ENDPOINT=https://your-endpoint.cognitiveservices.azure.com/
+   AZURE_OPENAI_API_KEY=your-api-key
+   AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
+   AZURE_OPENAI_MODEL=gpt-4o-mini
+   AZURE_OPENAI_API_VERSION=2025-01-01-preview
 
    # Backend Configuration
    PORT=5000
@@ -304,25 +288,15 @@ Or change port in `.env`:
 PORT=5001
 ```
 
-### OpenAI API Error
+### Azure OpenAI API Error
 
 **Error:** `Failed to generate answer`
 
 **Solutions:**
-1. Verify API key is correct in `.env`
-2. Check OpenAI API status: https://status.openai.com/
-3. Ensure you have credits in your OpenAI account
+1. Verify API key and endpoint are correct in `.env`
+2. Check Azure Portal for service health
+3. Ensure your deployment name matches the one in `.env`
 4. Check backend logs: `backend/logs/combined.log`
-
-### LiveKit Connection Failed
-
-**Error:** `Failed to connect to audio service`
-
-**Solutions:**
-1. Verify LiveKit credentials in `.env`
-2. Check LiveKit project is active
-3. Test WebSocket URL in browser
-4. Ensure firewall allows WebSocket connections
 
 ### Electron Not Opening
 
@@ -368,8 +342,7 @@ Once setup is complete:
 
 ## 📚 Additional Resources
 
-- [OpenAI API Documentation](https://platform.openai.com/docs)
-- [LiveKit Documentation](https://docs.livekit.io/)
+- [Azure OpenAI Documentation](https://learn.microsoft.com/azure/ai-services/openai/)
 - [Electron Documentation](https://www.electronjs.org/docs)
 - [React Documentation](https://react.dev/)
 

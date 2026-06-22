@@ -18,13 +18,25 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Window position
   getWindowPosition: () => ipcRenderer.invoke('get-window-position'),
   setWindowPosition: (x, y) => ipcRenderer.invoke('set-window-position', { x, y }),
+  startWindowDrag: () => ipcRenderer.invoke('start-window-drag'),
+  dragWindow: (dx, dy) => ipcRenderer.send('drag-window', { dx, dy }),
 
   // Video platform detection
   getOpenWindows: () => ipcRenderer.invoke('get-open-windows'),
   autoAdjustForPlatform: (platform) => ipcRenderer.invoke('auto-adjust-for-platform', platform),
 
+  // Meeting detection (real-time from main process)
+  getCurrentMeeting: () => ipcRenderer.invoke('get-current-meeting'),
+  onMeetingDetected: (callback) => {
+    ipcRenderer.on('meeting-detected', (event, data) => callback(data));
+  },
+
+  // Stealth features
+  enableStealth: () => ipcRenderer.invoke('enable-stealth'),
+  disableStealth: () => ipcRenderer.invoke('disable-stealth'),
+
   // Platform info
   platform: process.platform
 });
 
-console.log('⚡ InterviewAce Preload Script Loaded');
+console.log('InterviewAce Preload Script Loaded');
